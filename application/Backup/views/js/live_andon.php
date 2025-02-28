@@ -11,13 +11,6 @@
                 d = JSON.parse(JSON.stringify(r));
                 console.log(d);
                 if(d.statusCode == "200"){
-                    $("#count-delivery").html(d.data.Day.TotalUnit);
-                    $("#count-ontime").html(d.data.Day.TotalOntime);
-                    $("#percent-ontime").html(d.data.Day.PercentOntime+"%");
-                    $("#count-delay").html(d.data.Day.TotalDelay);
-                    $("#percent-delay").html(d.data.Day.PercentDelay+"%");
-                    $("#count-advance").html(d.data.Day.TotalAdvance);
-                    $("#percent-advance").html(d.data.Day.PercentAdvance+"%");
                 }
             },
             error:function(a,b,c) {
@@ -25,7 +18,16 @@
                 console.log(a.responseText);
             }
         });
-    }    
+    }
+    
+    $("#count-delivery").html($("#totalUnit-Day").attr("data-total"));
+    $("#count-ontime").html($("#totalOntime-Day").attr("data-total"));
+    $("#percent-ontime").html($("#totalOntime-Day").attr("data-percent")+"%");
+    $("#count-delay").html($("#totalDelay-Day").attr("data-total"));
+    $("#percent-delay").html($("#totalDelay-Day").attr("data-percent")+"%");
+    $("#count-advance").html($("#totalAdvance-Day").attr("data-total"));
+    $("#percent-advance").html($("#totalAdvance-Day").attr("data-percent")+"%");
+    
     $("#count-delivery-month").html($("#totalUnit").attr("data-total"));
     $("#count-ontime-month").html($("#totalOntime").attr("data-total"));
     $("#percent-ontime-month").html($("#totalOntime").attr("data-percent")+"%");
@@ -34,7 +36,7 @@
     $("#count-advance-month").html($("#totalAdvance").attr("data-total"));
     $("#percent-advance-month").html($("#totalAdvance").attr("data-percent")+"%");
 
-    get_data_andon();
+    // get_data_andon();
     setInterval(() => {
         get_data("jigin");
     }, 299000);

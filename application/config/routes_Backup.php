@@ -72,9 +72,6 @@ $route['re_calculate'] = 'Admin/re_calculate';
 $route['tracking_time'] = 'Admin/tracking_time';
 $route['summary_otd_excel'] = 'Admin/summary_otd_excel';
 $route['tracking_unit'] = 'Admin/tracking_unit';
-$route["set_ot_awal"] = 'Admin/set_ot_awal';
 
-// $route['auto_sync_ot'] = 'GetAndon/auto_sync_ot';
 $route['updateOTFromTracking'] = 'GetAndon/updateOTFromTracking';
-$route['updateOTFromTrackingKAP2'] = 'GetAndon/updateOTFromTrackingKAP2';
-$route["setPlant"] = 'GetAndon/setPlant';
+$route['auto_sync_ot'] = 'GetAndon/auto_sync_ot';

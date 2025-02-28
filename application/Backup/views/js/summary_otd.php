@@ -1,5 +1,10 @@
-<script src="<?= base_url("assets/chartjs/Chart.min.js") ?>"></script>
-<script src="<?= base_url("assets/chartjs-plugin-datalabels/dist/chartjs-plugin-datalabels.min.js") ?>"></script>
+<!-- <script src="<?= base_url("assets/chartjs/Chart.min.js") ?>"></script> -->
+<!-- <script src="<?= base_url("assets/chartjs-plugin-datalabels/dist/chartjs-plugin-datalabels.min.js") ?>"></script> -->
+ 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0"></script>
+
 <script src="<?= base_url("assets/datatables/datatables.min.js") ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -57,7 +62,7 @@
         })
     }
 
-    function open_chart(data) {
+    function open_chart1(data) {
         $("#modal-chart").modal("show");
         $("#title-chart").html("Chart OTD "+data.dataset.tanggal);
         // Prepare the dataset array from incoming data
@@ -71,11 +76,6 @@
 
         // Get context from canvas element
         var ctx = document.getElementById('myChart').getContext('2d');
-        
-        // Define the X-axis labels
-        const xValues = [
-            "Adv. > 8 Jam", "Adv. 8 Jam", "Adv. 7 Jam", "Adv. 6 Jam", "Adv. 5 Jam", "Adv. 4 Jam", "Adv. 3 Jam", "Adv. 2 Jam", "Adv. 1 Jam", "Ontime", "1 Jam", "2 Jam", "3 Jam", "4 Jam", "5 Jam", "6 Jam", "7 Jam", "8 Jam", "> 8 Jam"
-        ];
 
         // Create the line chart
         var plugin = 
@@ -98,7 +98,7 @@
         var lineChart = new Chart(ctx, {
             type: 'line', // Define the chart type
             data: {
-                labels: xValues, // X-axis labels
+                labels: dataLabel, // X-axis labels
                 datasets: [{
                     label: 'OTD', // Legend label
                     data: chart, // Data points for the chart
@@ -155,11 +155,278 @@
         });
     }
 
+    var myChart;
+    function open_chart(data) {
+        $("#modal-chart").modal("show");
+        $("#title-chart").html("Chart OTD "+data.dataset.tanggal);
+        const maxVal = data.dataset.max;
+        const xValues = [ "Adv. > 32h", "Adv. 32h", "Adv. 24h", "Adv. 16h", "Adv. 8h", "Adv. 7h", "Adv. 6h", "Adv. 5h", "Adv. 4h", "Adv. 3h", "Adv. 2h", "Adv. 1h", "Ontime", "Delay 1h", "Delay 2h", "Delay 3h", "Delay 4h", "Delay 5h", "Delay 6h", "Delay 7h", "Delay 8h", "Delay 16h", "Delay 24h", "Delay 32h", "Delay > 32h" ];
+        var chart = JSON.parse(data.dataset.chart);
+        console.log(chart,xValues);
+        // Memuat chart
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const annoOK = {
+            type: 'line',
+            borderColor: 'green',
+            borderDash: [6, 6],
+            borderWidth: 3,
+            label: {
+                display: true,
+                backgroundColor: 'lightGreen',
+                borderRadius: 0,
+                color: 'green',
+                content: 'Ontime Delivery',
+                position: 'center'
+            },
+            arrowHeads: {
+                end: {
+                    display: true,
+                    fill: true,
+                    borderDash: [],
+                    borderColor: 'green'
+                },
+                start: {
+                    display: true,
+                    fill: true,
+                    borderDash: [],
+                    borderColor: 'green'
+                }
+            },
+            xMin: 4,
+            xMax: 20,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: maxVal,
+            yScaleID: 'y'
+        };
+        const annoOKY1 = {
+            type: 'line',
+            borderColor: 'green',
+            borderDash: [6, 6],
+            borderWidth: 3,
+            xMin: 4,
+            xMax: 4,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: 0,
+            yScaleID: 'y'
+        };
+        const annoOKY2 = {
+            type: 'line',
+            borderColor: 'green',
+            borderDash: [6, 6],
+            borderWidth: 3,
+            xMin: 20,
+            xMax: 20,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: 0,
+            yScaleID: 'y'
+        };
+        const annoOKArea = {
+            type: 'box',
+            backgroundColor:'rgba(182, 250, 200, 0.2)',
+            borderWidth: 0,
+            xMin: 4,
+            xMax: 20,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: 0,
+            yScaleID: 'y'
+        };
+        const annoNGAdv = {
+            type: 'line',
+            borderColor: 'red',
+            borderDash: [6, 6],
+            borderWidth: 3,
+            label: {
+                display: true,
+                backgroundColor: 'lightRed',
+                borderRadius: 0,
+                color: 'red',
+                content: 'NG',
+                position: 'center'
+            },
+            arrowHeads: {
+                end: {
+                    display: true,
+                    fill: true,
+                    borderDash: [],
+                    borderColor: 'red'
+                },
+                start: {
+                    display: true,
+                    fill: true,
+                    borderDash: [],
+                    borderColor: 'red'
+                }
+            },
+            xMin: 0,
+            xMax: 4,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: maxVal,
+            yScaleID: 'y'
+        };
+        const annoNGDelay = {
+            type: 'line',
+            borderColor: 'red',
+            borderDash: [6, 6],
+            borderWidth: 3,
+            label: {
+                display: true,
+                backgroundColor: 'lightRed',
+                borderRadius: 0,
+                color: 'red',
+                content: 'NG',
+                position: 'center'
+            },
+            arrowHeads: {
+                end: {
+                    display: true,
+                    fill: true,
+                    borderDash: [],
+                    borderColor: 'red'
+                },
+                start: {
+                    display: true,
+                    fill: true,
+                    borderDash: [],
+                    borderColor: 'red'
+                }
+            },
+            xMin: 20,
+            xMax: 25,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: maxVal,
+            yScaleID: 'y'
+        };
+        const annoNGAreaAdv = {
+            type: 'box',
+            backgroundColor:'rgba(237, 173, 166, 0.2)',
+            borderWidth: 0,
+            xMin: 0,
+            xMax: 4,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: 0,
+            yScaleID: 'y'
+        };
+        const annoNGAreaDelay = {
+            type: 'box',
+            backgroundColor:'rgba(237, 173, 166, 0.2)',
+            borderWidth: 0,
+            xMin: 20,
+            xMax: 25,
+            xScaleID: 'x',
+            yMax: maxVal,
+            yMin: 0,
+            yScaleID: 'y'
+        };
+        if (myChart) {
+            myChart.destroy(); // Menghapus chart lama
+        }
+        myChart = new Chart(ctx, {
+            type: 'line', // Tipe chart: bisa juga 'line', 'pie', dll.
+            data: {
+                labels: xValues,
+                datasets: [{
+                    label: 'Periode',
+                    data: chart,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: {
+                    // Plugin DataLabels
+                    datalabels: {
+                        color: 'black',
+                        align: 'end',
+                        anchor: 'end',
+                        formatter: (value) => {
+                            return value; // Menampilkan nilai dengan satuan 'units'
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: 18,
+                        },
+                        padding: 3
+                    },
+                    // Plugin Annotations
+                    annotation: {
+                        annotations: {
+                            annoOKArea,
+                            annoOK,
+                            annoOKY1,
+                            annoOKY2,
+                            annoNGAdv,
+                            annoNGDelay,
+                            annoNGAreaAdv,
+                            annoNGAreaDelay,
+                        }
+                    },
+                    legend: {
+                        display: true
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true, // Menampilkan sumbu X
+                        title: {
+                            display: true,
+                            text: 'Periode' // Label untuk sumbu X
+                        },
+                        grid: {
+                            color: "rgba(0, 0, 0, 0)" // Menghapus garis grid untuk sumbu X
+                        },
+                        ticks: {
+                            font: {
+                                size: 10 // Ukuran font ticks di sumbu X
+                            }
+                        }
+                    },
+                    y: {
+                        display: true, // Menampilkan sumbu Y
+                        title: {
+                            display: true,
+                            text: 'Unit Delivery' // Label untuk sumbu Y
+                        },
+                        grid: {
+                            color: "rgba(0, 0, 0, 0)" // Menghapus garis grid untuk sumbu Y
+                        },
+                        ticks: {
+                            beginAtZero: true // Memulai sumbu Y dari 0
+                        }
+                    }
+                }
+            },
+            plugins: [ChartDataLabels] // Mengaktifkan plugin DataLabels
+        });
+    }
+
     function checkNull() {
         var otd_adjust = "<?php echo $otd_adjust; ?>"; // Ambil nilai dari PHP
 
-        for (var i = 0; i <= otd_adjust; i++) {
-            $('.cell-' + i).addClass('highlight-green');
+        for (var i = 0; i <= 8; i++) {
+            if(i <= otd_adjust){
+                $('.cell-' + i).addClass('highlight-green');
+            }else{
+                $('.cell-' + i).addClass('bg-danger text-light');
+            }
+            $('.cell-' + i).map(function(index,el) {
+                if(el.dataset.day == "SatSun"){
+                    $(this).removeClass('bg-danger text-light');
+                    $(this).addClass('bg-secondary');
+                }
+            });
         }
 
         $('.td-row').each(function() {
@@ -214,19 +481,32 @@
                 d = JSON.parse(JSON.stringify(r));
                 $("#list-unit").html(d.html);
                 tipe = parseInt(tipe);
-                if(tipe == -9){
-                    titleDownload = "Advance >8 hour";
-                }else if(tipe == 0){
-                    titleDownload = "Ontime";
-                }else if(tipe == 9){
-                    titleDownload = "Delay >8 hour";
-                }else if (tipe <= 8 && tipe >= 1) {
-                    titleDownload = "Delay " + tipe + " hour";
-                }else if(tipe >= -1 && tipe <= -8){
-                    titleDownload = "Advance " + tipe + " hour";
-                }else{
-                    titleDownload = "Data OTD Unit";
-                }
+                arrayTipe = {
+                    "-11"   : "Adv. > 32 Hour",
+                    "-10"   : "Adv. 32 Hour",
+                    "-9"    : "Adv. 24 Hour",
+                    "-8"    : "Adv. 16 Hour",
+                    "-7"    : "Adv. 8 Hour",
+                    "-6"    : "Adv. 7 Hour",
+                    "-5"    : "Adv. 6 Hour",
+                    "-4"    : "Adv. 5 Hour",
+                    "-3"    : "Adv. 4 Hour",
+                    "-2"    : "Adv. 3 Hour",
+                    "-1"    : "Adv. 2 Hour",
+                    "0"     : "Ontime (-1 ~ +1 Hour)",
+                    "1"     : "Delay 2 Hour",
+                    "2"     : "Delay 3 Hour",
+                    "3"     : "Delay 4 Hour",
+                    "4"     : "Delay 5 Hour",
+                    "5"     : "Delay 6 Hour",
+                    "6"     : "Delay 7 Hour",
+                    "7"     : "Delay 8 Hour",
+                    "8"     : "Delay 16 Hour",
+                    "9"     : "Delay 24 Hour",
+                    "10"    : "Delay 32 Hour",
+                    "11"    : "Delay > 32 Hour",
+                };
+                titleDownload = arrayTipe[tipe];
                 $("#btn-re-calculate").html("Kalkulasi Ulang");
                 $("#btn-re-calculate").show();
                 $("#btn-re-calculate").attr("data-vin",d.vin);
@@ -265,6 +545,9 @@
                 $("#list-unit").html(a.responseText);
             }
         })
+    }
+    function showListUnit1(data) {
+        swal.fire("Informasi","Masih dalam tahap development","warning");
     }
     // Event ketika modal ditutup
     $('#modal-list-unit').on('hidden.bs.modal', function () {

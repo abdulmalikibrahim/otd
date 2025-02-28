@@ -322,7 +322,7 @@ class Admin extends MY_Controller {
             ];
             $this->model->insert("log_sync",$data_log);
             $this->fb($fb);
-        } else {
+        }else{
             // Tampilkan hasil respons
             $data = json_decode($response,TRUE);
             if(!empty($data["rows"])){
@@ -482,10 +482,6 @@ class Admin extends MY_Controller {
                 //HITUNG OTD
                 $total_otd = $this->hitung_otd($data_jam,$jigin_time,$deliv_time,$data->vin,$data->jig_in,$data->delivery);
 
-                // if($total_otd < 0){
-                //     $balance = $total_otd + $std_otd;
-                // }else{
-                // }
                 $balance = $total_otd - $std_otd;
                 if($total_otd <= $std_otd){
                     $status_otd = "Ontime";
@@ -497,9 +493,6 @@ class Admin extends MY_Controller {
             }
         }
 
-        print_r($data_otd);
-        die();
-        
         if(!empty($vin_hitung_ulang)){
             print_r($data_otd);
             die();
@@ -525,69 +518,8 @@ class Admin extends MY_Controller {
         $this->fb($fb);
     }
 
-    private function getFilteredTimeArrayByStart($timeArray, $minStart) {
-        // Initialize an array to store the filtered results
-        $filteredArray = [];
-    
-        // Loop through each stdClass object in the array
-        foreach ($timeArray as $timeObject) {
-            // Check if the object's 'start' time is greater than or equal to minStart
-            if ($timeObject->start >= $minStart) {
-                // Add the object to the filtered array
-                $filteredArray[] = $timeObject;
-            }
-        }
-    
-        return $filteredArray;
-    }  
-
-    private function roundTime($time)
-    {
-        // Ubah menjadi objek DateTime
-        $datetime = new DateTime($time);
-
-        // Ambil menit saat ini
-        $minutes = (int) $datetime->format('i');
-
-        // Hitung selisih menit untuk mencapai kelipatan 60 (satu jam berikutnya)
-        $minutesToAdd = 60 - $minutes;
-
-        // Tambahkan selisih menit ke waktu
-        $datetime->modify("+{$minutesToAdd} minutes");
-
-        // Ambil menit yang dihasilkan dan tambahkan 1 untuk mencapai menit pertama setelah jam berikutnya
-        $datetime->modify('+1 minute');
-
-        // Set detik menjadi 00 agar sesuai dengan format yang diinginkan
-        $datetime->setTime($datetime->format('H'), $datetime->format('i'), 0);
-
-        // Format hasilnya menjadi jam:menit:detik
-        $roundedTime = $datetime->format('H:i:s');
-
-        // Tampilkan hasil
-        return $roundedTime;
-    }
-
-    private function checkShift($jigin)
-    {
-        $shift = "DS";
-        $jigin = strtotime(date("H:i:s",strtotime($jigin)));
-        if($jigin >= strtotime("00:00:00") && $jigin <= strtotime("07:25:00")){
-            $shift = "NS";
-        }else if($jigin >= strtotime("20:40:00") && $jigin <= strtotime("23:59:59")){
-            $shift = "NS";
-        }
-        return $shift;
-    }
-
     private function hitung_otd($ot_info,$jigin_time,$deliv_time,$vin,$jigin_date,$deliv_date)
     {
-        $start = new DateTime($jigin_date);
-        $end = new DateTime($deliv_date);
-        $diff = $start->diff($end);
-        $diff_menit = ($diff->d * )
-        print_r($diff);
-        echo $jigin_date." => ".$deliv_date;
         $jig_in = str_replace(":","",$jigin_time);
         $deliv = str_replace(":","",$deliv_time);
         //INISIALISASI JIG IN SHIFT
@@ -606,65 +538,6 @@ class Admin extends MY_Controller {
         }
 
         $countingDay = (count($ot_info) - 1); //JUMLAH HARI UNIT SELAMA PROSES SAMPAI DELIVERY (KURANG SATU KARENA ARRAY MULAI DAI 0)
-        $timelineNightShiftSpecial = [];
-        $allTimeLine = [];
-        $currentTime = $jigin_date;
-        $JigIn = $jigin_date;
-        $roundTime = $this->roundTime($currentTime);
-        $loopTime = true;
-        $timelineLoop = [];
-        $loopOneHours = date("H:i:s",strtotime("+1 hours",strtotime($currentTime)));
-
-        $i = 0;
-        while ($loopTime) {
-            $shift = $this->checkShift($JigIn);
-            $tanggal = date("Y-m-d H:i:s",strtotime("+1 hours",strtotime($currentTime)));
-            $validateTanggal = $this->model->gd("set_ot","*","tanggal = '".(date("d",strtotime($tanggal))*1)."'","row");
-            if($validateTanggal->on_off <= 0){
-                if($validateTanggal->shadow <= 0){
-                    continue;
-                }
-            }
-
-
-            if(strtotime($currentTime) >= strtotime($deliv_date)){
-                $loopTime = false;
-                $loopOneHours = date("H:i:s",strtotime($deliv_date));
-                if($loopTime === false){
-                    $timelineLoop[$tanggalKey][$i-1]["end"] = date("H:i:s",strtotime($deliv_date));
-                }
-                continue;
-            }else{
-                if($jigin_date == $currentTime){
-                    $loopOneHours = $roundTime;
-                }else{
-                    $loopOneHours = date("H:i:s",strtotime("+1 hours",strtotime($currentTime)));
-                }
-            }
-
-            if($shift == "NS"){
-                $endTimeShift = strtotime($validateTanggal->end_ns);
-            }else{
-                $endTimeShift = strtotime($validateTanggal->end_ds);
-            }
-
-            // echo strtotime($loopOneHours)." >= ".$endTimeShift." = (".(strtotime($loopOneHours) >= $endTimeShift).")\n";
-
-            //CARI MINUTES
-            $tanggalKey = date("Y-m-d",strtotime($currentTime));
-            $timelineLoop[$tanggalKey][$i] = [
-                "start" => date("H:i:s",strtotime($currentTime)),
-                "end" => date("H:i:s",strtotime($loopOneHours)),
-            ];
-
-            if($loopOneHours == $roundTime){
-                $currentTime = date("Y-m-d",strtotime($currentTime))." ".$roundTime;
-            }else{
-                $currentTime = date("Y-m-d H:i:s",strtotime("+1 hours",strtotime($currentTime)));
-            }
-            $i++;
-        }
-
         foreach ($ot_info as $key_jam => $val_jam) {
             $day_val = date("D",strtotime($val_jam["tanggal"]));
             if($val_jam["on_off"] <= 0){
@@ -677,177 +550,121 @@ class Admin extends MY_Controller {
                 $search_day_val = "AND day_val = 'Fri'";
             }
 
-            $timeline = $this->model->gd("timeline","*",str_replace("AND","",$search_day_val),"result");
-            $allTimeLine[$val_jam["tanggal"]] = $timeline;
-
             $otd = 0; //VARIABLE OTD (HITUNGAN LEADTIME)
-            // if($key_jam <= 0){ // PROSES HITUNG DARI JIG IN SAMPAI AKHIR PROSES (NIGHT SHIFT)
-            //     $jam_awal = $jigin_time;
-            //     if($jig_in_shift == "DS"){// JIKA JIG IN SHIFT ADALAH DAY SHIFT (ATUR JAM AKHIR KE NIGH SHIFT)
-            //         $jam_akhir = $val_jam["DS"]["end"];
+            if($key_jam <= 0){ // PROSES HITUNG DARI JIG IN SAMPAI AKHIR PROSES (NIGHT SHIFT)
+                $jam_awal = $jigin_time;
+                if($jig_in_shift == "DS"){// JIKA JIG IN SHIFT ADALAH DAY SHIFT (ATUR JAM AKHIR KE NIGH SHIFT)
+                    $jam_akhir = $val_jam["DS"]["end"];
 
-            //         //DAPATKAN TIMELINE DAY SHIFT
-            //         $timelineDayShift = $this->model->gd("timeline","*","
-            //         (start >= '$jam_awal' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') OR 
-            //         (start < '$jam_awal' AND end > '$jam_awal' ".$search_day_val." AND shift = 'DS') OR 
-            //         (start < '$jam_akhir:59' AND end > '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
+                    //DAPATKAN TIMELINE DAY SHIFT
+                    $timelineDayShift = $this->model->gd("timeline","*","
+                    (start >= '$jam_awal' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') OR 
+                    (start < '$jam_awal' AND end > '$jam_awal' ".$search_day_val." AND shift = 'DS') OR 
+                    (start < '$jam_akhir:59' AND end > '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
 
-            //         //DAPATKAN TIMELINE NIGHT SHIFT
-            //         $jam_awal = $val_jam["NS"]["start"];
-            //         $jam_akhir = $val_jam["NS"]["end"];
+                    //DAPATKAN TIMELINE NIGHT SHIFT
+                    $jam_awal = $val_jam["NS"]["start"];
+                    $jam_akhir = $val_jam["NS"]["end"];
 
-            //         $timelineNightShift = $this->model->gd("timeline","*","
-            //         (start >= '$jam_awal:59' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
-            //         (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
+                    $timelineNightShift = $this->model->gd("timeline","*","
+                    (start >= '$jam_awal:59' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
+                    (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
 
-            //         $timelineOTD[$val_jam["tanggal"]] = array_merge($timelineDayShift,$timelineNightShift);
-            //     }else{
-            //         //DAPATKAN TIMELINE NIGHT SHIFT
-            //         $jam_akhir = $val_jam["NS"]["end"];
-                    
-            //         if(strtotime($jam_awal) >= strtotime("00:00:00") && strtotime($jam_awal) <= strtotime("07:20:00")){
-            //             // $timelineNightShift1 = $this->model->gd("timeline","*","
-            //             // (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-            //             // $timelineNightShift = $this->getFilteredTimeArrayByStart($timelineNightShift1, $jam_awal);
-            //             // $Jigin = new DateTime($jigin_date);
-            //             // $Delivery = new DateTime($deliv_date);
-            //             // $Selisih = $Jigin->diff($Delivery);
-            //             // if($Selisih->days > 0){
-            //             //     //CARI TIMELINE DARI JAM 05:45 -> AKHIR SHIFT PAGI
-            //             //     $timelineNightShift1 = $this->model->gd("timeline","*","
-            //             //     (start >= '$jam_awal' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
-            //             //     (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-            //             // }
-            //         }else{
-            //             $timelineNightShift1 = $this->model->gd("timeline","*","
-            //             ('$jam_awal' BETWEEN start AND end ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-
-            //             $timelineNightShift2 = $this->model->gd("timeline","*","
-            //             (start >= '$jam_awal' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
-            //             (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-
-            //             $timelineNightShift = array_merge($timelineNightShift1,$timelineNightShift2);
-            //             $timelineOTD[$val_jam["tanggal"]] = $timelineNightShift;
-            //         }
-
-            //     }
-            // }else if($key_jam > 0 && $key_jam < $countingDay){// PROSES UNIT BERADA DI TENGAH HARI (MASIH PROSES BELUM DELIVERY)
-            //     $jam_awal = $val_jam["DS"]["start"];
-            //     $jam_akhir = $val_jam["DS"]["end"];
-
-            //     //DAPATKAN TIMELINE DAY SHIFT
-            //     $timelineDayShift = $this->model->gd("timeline","*","
-            //     (start >= '$jam_awal' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') OR 
-            //     (start < '$jam_awal' AND end > '$jam_awal' ".$search_day_val." AND shift = 'DS') OR 
-            //     (start < '$jam_akhir:59' AND end > '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
-
-            //     //DAPATKAN TIMELINE NIGHT SHIFT
-            //     $jam_awal = $val_jam["NS"]["start"];
-            //     $jam_akhir = $val_jam["NS"]["end"];
-
-            //     $timelineNightShift = $this->model->gd("timeline","*","
-            //     (start >= '$jam_awal:59' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
-            //     (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-
-            //     $timelineOTD[$val_jam["tanggal"]] = array_merge($timelineDayShift,$timelineNightShift);
-            // }else{// PROSES HARI DIMANA UNIT DELIVERY
-            //     $jam_awal = $val_jam["DS"]["start"];
-            //     if($deliv_shift == "DS"){// JIKA DELIVERY SHIFT ADALAH DAY SHIFT (ATUR JAM AKHIR KE NIGH SHIFT)
-            //         $jam_akhir = $deliv_time;
-
-            //         //DAPATKAN TIMELINE DAY SHIFT
-            //         $timelineDayShift = $this->model->gd("timeline","*","
-            //         (start >= '$jam_awal:59' AND end <= '$jam_akhir' ".$search_day_val." AND shift = 'DS') OR 
-            //         (start < '$jam_awal:59' AND end > '$jam_awal:59' ".$search_day_val." AND shift = 'DS') OR 
-            //         (start < '$jam_akhir' AND end > '$jam_akhir' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
-
-            //         $timelineOTD[$val_jam["tanggal"]] = $timelineDayShift;
-            //     }else{
-            //         //JIKA PROSES DELIVERY ADALAH 1 HARI DAN ITU JIG IN DS DAN DELIV NS
-            //         if($countingDay == 1 && $jig_in_shift == "DS" && $deliv_shift == "NS"){
-            //             continue; //SKIP PROSES
-            //         }
-            //         //DAPATKAN TIMELINE NIGHT SHIFT
-            //         $jam_awal = $val_jam["DS"]["start"];
-            //         $jam_akhir = $val_jam["DS"]["end"];
-
-            //         //DAPATKAN TIMELINE DAY SHIFT
-            //         $timelineDayShift = $this->model->gd("timeline","*","
-            //         (start >= '$jam_awal' AND end <= '$jam_akhir' ".$search_day_val." AND shift = 'DS') OR 
-            //         (start < '$jam_awal' AND end > '$jam_awal' ".$search_day_val." AND shift = 'DS') OR 
-            //         (start < '$jam_akhir' AND end > '$jam_akhir' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
-
-            //         //DAPATKAN TIMELINE NIGHT SHIFT
-            //         $jam_awal = $val_jam["NS"]["start"];
-            //         $jam_akhir = $deliv_time;
-                    
-            //         if(strtotime($jam_akhir) >= strtotime("20:30:00") && strtotime($jam_akhir) <= strtotime("23:59:59")){
-            //             $timelineNightShift = $this->model->gd("timeline","*","
-            //             (start >= '$jam_awal:59' AND start <= '$jam_akhir' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-            //         }else if(strtotime($jam_akhir) >= strtotime("00:00:00") && strtotime($jam_akhir) <= strtotime("07:20:00")){
-            //             $timelineNightShift = $this->model->gd("timeline","*","
-            //             (start >= '$jam_awal:59' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
-            //             (start >= '00:00:00' AND end <= '$jam_akhir' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
-            //         }
-            //         $timelineOTD[$val_jam["tanggal"]] = array_merge($timelineDayShift,$timelineNightShift);
-            //     }
-            // }
-        }
-
-        print_r($timelineLoop);
-        die();
-
-        $TimeLine = [];
-        foreach ($allTimeLine as $key => $timeline) {
-            foreach ($timeline as $key_tl => $value_tl) {
-                $TimeLine[] = [
-                    "start" => $key." ".$value_tl->start,
-                    "end" => $key." ".$value_tl->end,
-                    "minutes" => $value_tl->minutes,
-                ];
-            }
-        }
-
-        $startTL = "#";
-        $endTL = "#";
-        $next = "yes";
-        $timelineOTD = [];
-        foreach ($TimeLine as $key => $value) {
-            if($startTL == "#"){
-                $checkTime = new DateTime($jigin_date);
-            }else{
-                $checkTime = new DateTime($deliv_date);
-            }
-            // Rentang waktu
-            $startTime = new DateTime($value["start"]);
-            $endTime = new DateTime($value["end"]);
-
-            // Memeriksa apakah waktu yang ingin diperiksa berada dalam rentang
-            if ($checkTime >= $startTime && $checkTime <= $endTime && $next == "yes") {
-                $timelineOTD[] = [
-                    "start" => $value["start"],
-                    "end" => $value["end"],
-                    "minutes" => $value["minutes"],
-                ];
-
-                if($startTL == "#"){
-                    $startTL = "picking";
+                    $timelineOTD[$val_jam["tanggal"]] = array_merge($timelineDayShift,$timelineNightShift);
                 }else{
-                    $endTL = "picking";
-                    $next = "no";
-                }
+                    //DAPATKAN TIMELINE NIGHT SHIFT
+                    $jam_akhir = $val_jam["NS"]["end"];
+                    
+                    if(strtotime($jam_awal) >= strtotime("00:00:00") && strtotime($jam_awal) <= strtotime("07:20:00")){
+                        $timelineNightShift = $this->model->gd("timeline","*","
+                        (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
+                        $end_timeline = end($timelineNightShift);
+                        if(strtotime($val_jam["tanggal"]." ".$end_timeline->end) < strtotime($deliv_date)){
+                            $timelineNightShift1 = $this->model->gd("timeline","*","
+                            (start >= '07:01:00' AND end <= '23:59:59' ".$search_day_val.") ORDER BY id ASC","result");
+                            $timelineNightShift = array_merge($timelineNightShift,$timelineNightShift1);
+                        }
 
-            } else {
-                if($next == "yes"){
-                    $timelineOTD[] = [
-                        "start" => $value["start"],
-                        "end" => $value["end"],
-                        "minutes" => $value["minutes"],
-                    ];
+                        $end_timeline = end($timelineNightShift);
+                        if(strtotime(date("Y-m-d",strtotime("+1 days",strtotime($val_jam["tanggal"])))." 00:00:00") < strtotime($deliv_date)){
+                            $timelineNightShift1 = $this->model->gd("timeline","*","
+                            (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val.") ORDER BY id ASC","result");
+                            $timelineNightShift = array_merge($timelineNightShift,$timelineNightShift1);
+                        }
+                        print_r($timelineNightShift);
+                    }else{
+                        $timelineNightShift = $this->model->gd("timeline","*","
+                        (start >= '$jam_awal' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
+                        (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
+                    }
+
+                    $timelineOTD[$val_jam["tanggal"]] = $timelineNightShift;
+                }
+            }else if($key_jam > 0 && $key_jam < $countingDay){// PROSES UNIT BERADA DI TENGAH HARI (MASIH PROSES BELUM DELIVERY)
+                $jam_awal = $val_jam["DS"]["start"];
+                $jam_akhir = $val_jam["DS"]["end"];
+
+                //DAPATKAN TIMELINE DAY SHIFT
+                $timelineDayShift = $this->model->gd("timeline","*","
+                (start >= '$jam_awal' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') OR 
+                (start < '$jam_awal' AND end > '$jam_awal' ".$search_day_val." AND shift = 'DS') OR 
+                (start < '$jam_akhir:59' AND end > '$jam_akhir:59' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
+
+                //DAPATKAN TIMELINE NIGHT SHIFT
+                $jam_awal = $val_jam["NS"]["start"];
+                $jam_akhir = $val_jam["NS"]["end"];
+
+                $timelineNightShift = $this->model->gd("timeline","*","
+                (start >= '$jam_awal:59' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
+                (start >= '00:00:00' AND end <= '$jam_akhir:59' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
+
+                $timelineOTD[$val_jam["tanggal"]] = array_merge($timelineDayShift,$timelineNightShift);
+            }else{// PROSES HARI DIMANA UNIT DELIVERY
+                $jam_awal = $val_jam["DS"]["start"];
+                if($deliv_shift == "DS"){// JIKA DELIVERY SHIFT ADALAH DAY SHIFT (ATUR JAM AKHIR KE NIGH SHIFT)
+                    $jam_akhir = $deliv_time;
+
+                    //DAPATKAN TIMELINE DAY SHIFT
+                    $timelineDayShift = $this->model->gd("timeline","*","
+                    (start >= '$jam_awal:59' AND end <= '$jam_akhir' ".$search_day_val." AND shift = 'DS') OR 
+                    (start < '$jam_awal:59' AND end > '$jam_awal:59' ".$search_day_val." AND shift = 'DS') OR 
+                    (start < '$jam_akhir' AND end > '$jam_akhir' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
+
+                    $timelineOTD[$val_jam["tanggal"]] = $timelineDayShift;
+                }else{
+                    //JIKA PROSES DELIVERY ADALAH 1 HARI DAN ITU JIG IN DS DAN DELIV NS
+                    if($countingDay == 1 && $jig_in_shift == "DS" && $deliv_shift == "NS"){
+                        continue; //SKIP PROSES
+                    }
+                    //DAPATKAN TIMELINE NIGHT SHIFT
+                    $jam_awal = $val_jam["DS"]["start"];
+                    $jam_akhir = $val_jam["DS"]["end"];
+
+                    //DAPATKAN TIMELINE DAY SHIFT
+                    $timelineDayShift = $this->model->gd("timeline","*","
+                    (start >= '$jam_awal' AND end <= '$jam_akhir' ".$search_day_val." AND shift = 'DS') OR 
+                    (start < '$jam_awal' AND end > '$jam_awal' ".$search_day_val." AND shift = 'DS') OR 
+                    (start < '$jam_akhir' AND end > '$jam_akhir' ".$search_day_val." AND shift = 'DS') ORDER BY id ASC","result");
+
+                    //DAPATKAN TIMELINE NIGHT SHIFT
+                    $jam_awal = $val_jam["NS"]["start"];
+                    $jam_akhir = $deliv_time;
+                    
+                    if(strtotime($jam_akhir) >= strtotime("20:30:00") && strtotime($jam_akhir) <= strtotime("23:59:59")){
+                        $timelineNightShift = $this->model->gd("timeline","*","
+                        (start >= '$jam_awal:59' AND start <= '$jam_akhir' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
+                    }else if(strtotime($jam_akhir) >= strtotime("00:00:00") && strtotime($jam_akhir) <= strtotime("07:20:00")){
+                        $timelineNightShift = $this->model->gd("timeline","*","
+                        (start >= '$jam_awal:59' AND end <= '23:59:59' ".$search_day_val." AND shift = 'NS') OR
+                        (start >= '00:00:00' AND end <= '$jam_akhir' ".$search_day_val." AND shift = 'NS') ORDER BY id ASC","result");
+                    }
+                    $timelineOTD[$val_jam["tanggal"]] = array_merge($timelineDayShift,$timelineNightShift);
                 }
             }
+
         }
         
+        print_r($timelineOTD);
         $timelineOTD = json_encode($timelineOTD);
         $timelineOTD = json_decode($timelineOTD,true);
 
@@ -871,11 +688,7 @@ class Admin extends MY_Controller {
         }
 
         //CARI SELISIH WAKTU JIG IN KE START DS
-        if($jigin_timeline == "00:00:00"){
-            $startTime = new DateTime("23:59:59");
-        }else{
-            $startTime = new DateTime($jigin_timeline);
-        }
+        $startTime = new DateTime($jigin_timeline);
         $endTime = new DateTime($jigin_time);
         $interval = $startTime->diff($endTime);
         $minutes = ($interval->h * 60) + $interval->i + ($interval->s / 60);
@@ -891,10 +704,8 @@ class Admin extends MY_Controller {
         //FINAL OTD
         $otd_final = $otd - $sisaMenitJigIn - $sisaMenitDeliv;
 
-        // echo $otd."-".$sisaMenitJigIn."-".$sisaMenitDeliv."\n";
+        echo $otd."-".$sisaMenitJigIn."-".$sisaMenitDeliv;
         // print_r($deliv_timeline);
-        // echo "\n";
-        // print_r($timelineOTD);
         return $otd_final;
     }
 
@@ -944,29 +755,12 @@ class Admin extends MY_Controller {
             $day_search = "'".$day." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($day)))." 07:00:00'";
         }
         switch ($tipe) {
-            case -9:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance <= -481 AND vin != '' ORDER BY balance ASC","result");
-                break;
-            case -8:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -421 AND -480 AND vin != '' ORDER BY balance ASC","result");
-                break;
-            case -7:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -361 AND -420 AND vin != '' ORDER BY balance ASC","result");
-                break;
-            case -6:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -301 AND -360 AND vin != '' ORDER BY balance ASC","result");
-                break;
-            case -5:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -241 AND -300 AND vin != '' ORDER BY balance ASC","result");
-                break;
-            case -4:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -181 AND -240 AND vin != '' ORDER BY balance ASC","result");
-                break;
             case -3:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -180 AND -61 AND vin != '' ORDER BY balance ASC","result");
+                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance <= 121 AND vin != '' ORDER BY balance ASC","result");
+                break;
                 break;
             case -2:
-                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -120 AND -61 AND vin != '' ORDER BY balance ASC","result");
+                $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -120 AND -60 AND vin != '' ORDER BY balance ASC","result");
                 break;
             case -1:
                 $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN -60 AND -1 AND vin != '' ORDER BY balance ASC","result");

@@ -2,10 +2,17 @@
 date_default_timezone_set("Asia/Jakarta");
 class Admin extends MY_Controller {
 
+	public function __construct()
+	{
+		parent::__construct();
+        $this->plant = !empty($this->session->userdata("plant")) ? $this->session->userdata("plant") : "KAP1";
+    }
+
 	function index()
     {
         $this->load->view("admin/index");
     }
+
 	function print_otd()
     {
         if(empty($this->month_sum)){
@@ -25,18 +32,22 @@ class Admin extends MY_Controller {
 
 	function set_wh()
     {
-        if(!empty($this->input->get("ot-awal"))){
-            $update = [
-                "nilai" => $this->input->get("ot-awal"),
-            ];
-            $this->model->update("master_setting","item = 'ot_awal'",$update);
-        }
         $data_std = $this->model->gd("master_setting","*","item != ''","result");
         $data["data_std"] = $data_std;
         $data["title"] = "Set WH Overtime";
         $data["body"] = "set_wh";
         $data["jsadd"] = "set_wh";
         $this->load->view("template/index",$data);
+    }
+
+    function set_ot_awal()
+    {
+        $update = [
+            "nilai" => $this->input->post("ot-awal"),
+        ];
+        $item = $this->plant == "KAP1" ? "ot_awal" : "ot_awal_kap2";
+        $this->model->update("master_setting","item = '$item'",$update);
+        redirect("set_wh");
     }
 
 	function graph_andon()
@@ -102,6 +113,7 @@ class Admin extends MY_Controller {
         $this->form_validation->set_rules("onoff[]","On Off Day","trim");
         $this->form_validation->set_rules("start_ds[]","Start DS","trim");
         $this->form_validation->set_rules("end_ds[]","End DS","trim");
+        $this->form_validation->set_rules("onoffnight[]","On Off Night","trim");
         $this->form_validation->set_rules("start_ns[]","Start NS","trim");
         $this->form_validation->set_rules("end_ns[]","End NS","trim");
         if($this->form_validation->run() === FALSE){
@@ -109,12 +121,16 @@ class Admin extends MY_Controller {
             redirect("set_wh");
         }
 
-        $month = $this->input->get("month");
+        $month = sprintf("%02d",$this->input->get("month"));
         $start_ds = $this->input->post("start_ds");
         $end_ds = $this->input->post("end_ds");
         $start_ns = $this->input->post("start_ns");
         $end_ns = $this->input->post("end_ns");
         $on_off = $this->input->post("onoff");
+        $on_off_night = $this->input->post("onoffnight");
+        
+        $update = [];
+        //UPDATE DAY SHIFT 
         for ($i=1; $i <= date("t",strtotime(date("Y-".$month."-01"))); $i++) {
             if(!empty($on_off[$i])){
                 $onoff = "1";
@@ -134,13 +150,30 @@ class Admin extends MY_Controller {
                 $endDS = NULL;
             }
             
-            if(!empty($start_ns[$i])){
+            $tanggal = date("Y-".$month."-".sprintf("%02d",$i));
+            $day_val = date("D",strtotime($tanggal));
+            $update[$tanggal]["tanggal"] = $tanggal;
+            $update[$tanggal]["on_off"] = $onoff;
+            $update[$tanggal]["start_ds"] = $startDS;
+            $update[$tanggal]["end_ds"] = $endDS;
+            $update[$tanggal]["shadow"] = "0";
+
+        }
+        
+        for ($i=1; $i <= date("t",strtotime(date("Y-".$month."-01"))); $i++) {
+            if(!empty($on_off_night[$i])){
+                $onoff = "1";
+            }else{
+                $onoff = "0";
+            }
+            
+            if(!empty($start_ns[$i]) && !empty($onoff)){
                 $startNS = $start_ns[$i];
             }else{
                 $startNS = NULL;
             }
             
-            if(!empty($end_ns[$i])){
+            if(!empty($end_ns[$i]) && !empty($onoff)){
                 $endNS = $end_ns[$i];
             }else{
                 $endNS = NULL;
@@ -148,47 +181,24 @@ class Admin extends MY_Controller {
             
             $tanggal = date("Y-".$month."-".sprintf("%02d",$i));
             $day_val = date("D",strtotime($tanggal));
-            $update[$tanggal] = [
-                "tanggal" => $tanggal,
-                "on_off" => $onoff,
-                "start_ds" => $startDS,
-                "end_ds" => $endDS,
-                "start_ns" => $startNS,
-                "end_ns" => $endNS,
-                "shadow" => "0",
-            ];
-            if(substr_count("Sat Sun",$day_val) > 0){
-                if(empty($on_off[$i])){
-                    //CHECK HARI SEBELUM NYA
-                    $keyTanggal = date("Y-m-d",strtotime("-1 days",strtotime($tanggal)));
-                    if(!empty($update[$keyTanggal]["start_ns"]) && !empty($update[$keyTanggal]["start_ds"])){
-                        $update[$tanggal] = [
-                            "tanggal" => $tanggal,
-                            "on_off" => $onoff,
-                            "start_ds" => NULL,
-                            "end_ds" => NULL,
-                            "start_ns" => "00:00",
-                            "end_ns" => $update[$keyTanggal]["end_ns"],
-                            "shadow" => "1",
-                        ];
-                    }
-                }
-            }
-
+            $update[$tanggal]["tanggal"] = $tanggal;
+            $update[$tanggal]["on_off_night"] = $onoff;
+            $update[$tanggal]["start_ns"] = $startNS;
+            $update[$tanggal]["end_ns"] = $endNS;
+            $update[$tanggal]["shadow"] = "0";
         }
 
-        // print_r($update);
-        // die();
+        $table_ot = $this->plant == "KAP1" ? "set_ot" : "set_ot_kap2";
         foreach ($update as $key => $value) {
             //CHECK DATA SETUP
-            $check = $this->model->gd("set_ot","id","tanggal = '$key'","row");
+            $check = $this->model->gd($table_ot,"id","tanggal = '$key'","row");
             if(!empty($check)){
                 if($key == "2024-10-31"){
-                    $this->model->update("set_ot","tanggal = '$key'",$value);
+                    $this->model->update($table_ot,"tanggal = '$key'",$value);
                 }
-                $this->model->update("set_ot","tanggal = '$key'",$value);
+                $this->model->update($table_ot,"tanggal = '$key'",$value);
             }else{
-                $this->model->insert("set_ot",$value);
+                $this->model->insert($table_ot,$value);
             }
         }
         $this->swal("Sukses","Data OT berhasil disimpan","success");
@@ -199,6 +209,7 @@ class Admin extends MY_Controller {
     {
         $vin = $this->input->post("vin");
         $pdd = $this->input->post("pdd");
+        $kap = $this->input->post("kap");
         
         //CLEAR CALCULATE
         $data = [
@@ -207,7 +218,8 @@ class Admin extends MY_Controller {
             "tracking" => NULL,
         ];
 
-        $this->model->update("unit","vin IN(".$vin.")",$data);
+        $tableUnit = $kap == "1" ? "unit" : "unitkap2";
+        $this->model->update($tableUnit,"vin IN(".$vin.")",$data);
         //HITUNG RE-CALCULATE PARTIAL
         $jumlah_vin = substr_count($vin,",");
         if($jumlah_vin <= 0 && !empty($vin)){
@@ -218,7 +230,7 @@ class Admin extends MY_Controller {
         $partial = ceil($partial);
         for ($i=0; $i < $partial; $i++) {
             // URL endpoint dan parameter
-            $url = base_url("calc_lead_time?date=".$pdd);
+            $url = base_url("calc_lead_time?date=".$pdd."&KAP=".$kap);
             // Inisialisasi sesi cURL
             $ch = curl_init();
             // Atur opsi cURL
@@ -279,17 +291,31 @@ class Admin extends MY_Controller {
         $wip_pbs = $this->input->post("wip-pbs");
         $wip_assy = $this->input->post("wip-assy");
         $wip_ru = $this->input->post("wip-ru");
+        $kap = $this->input->get("kap");
 
-        $data_submit = [
-            "eff" => $eff,
-            "tt" => $tt,
-            "wipw" => $wip_weld,
-            "wipt" => $wip_paint,
-            "wipp" => $wip_pbs,
-            "wipa" => $wip_assy,
-            "wipr" => $wip_ru,
-        ];
-        $array_update = ["eff","tt","wipw","wipt","wipp","wipa","wipr"];
+        if($kap == "1"){
+            $data_submit = [
+                "eff" => $eff,
+                "tt" => $tt,
+                "wipw" => $wip_weld,
+                "wipt" => $wip_paint,
+                "wipp" => $wip_pbs,
+                "wipa" => $wip_assy,
+                "wipr" => $wip_ru,
+            ];
+            $array_update = ["eff","tt","wipw","wipt","wipp","wipa","wipr"];
+        }else{
+            $data_submit = [
+                "eff_kap2" => $eff,
+                "tt_kap2" => $tt,
+                "wipw_kap2" => $wip_weld,
+                "wipt_kap2" => $wip_paint,
+                "wipp_kap2" => $wip_pbs,
+                "wipa_kap2" => $wip_assy,
+                "wipr_kap2" => $wip_ru,
+            ];
+            $array_update = ["eff_kap2","tt_kap2","wipw_kap2","wipt_kap2","wipp_kap2","wipa_kap2","wipr_kap2"];
+        }
         foreach ($array_update as $key => $value) {
             $data_update = ["nilai" => $data_submit[$value]];
             $this->model->update("master_setting","item = '".$value."'",$data_update);
@@ -300,6 +326,7 @@ class Admin extends MY_Controller {
 
     function get_data($shop)
     {
+        header('Content-Type: application/json');
         if((date("His")*1) >= 70000){
             $date = date("Y-m-d");
         }else{
@@ -309,18 +336,16 @@ class Admin extends MY_Controller {
             $date = $this->input->get("date");
         }
 
-        $auto_sync = "No";
-        if(!empty($this->input->get("auto_sync"))){
-            $auto_sync = $this->input->get("auto_sync");
-        }
+        $auto_sync = !empty($this->input->get("auto_sync")) ? $this->input->get("auto_sync") : "No";
+        $kap = !empty($this->input->get("kap")) ? $this->input->get("kap") : "1";
 
         $start_date = date("Y-m-d",strtotime($date))." 07:00:00";
         $end_date = date("Y-m-d",strtotime("+1 days",strtotime($date)))." 07:00:00";
         if($shop == "jigin"){
-            $shop_val = "3Z01";
+            $shop_val = $kap == "1" ? "3Z01" : "5X01 ";
             $tpcd = "01010";
         }else if($shop == "delivery"){
-            $shop_val = "3Z04";
+            $shop_val = $kap == "1" ? "3Z04" : "5X04 ";
             $tpcd = "04030";
         }else{
             $fb = ["status" => 500, "res" => "Parameter shop tidak valid"];
@@ -336,151 +361,192 @@ class Admin extends MY_Controller {
             $this->fb($fb);
         }
         // URL endpoint dan parameter
-        $url = "http://sv-web-kap/pis/searching_unit/byscan_main.php";
-        $params = [
-            'shop' => $shop_val,
-            'tpcd' => $tpcd,
-            'scandt_from' => $start_date,
-            'scandt_to' => $end_date,
-            '_search' => 'false',
-            'nd' => '1723946520873',
-            'rows' => '10000',
-            'page' => '1',
-            'sidx' => '',
-            'sord' => 'asc',
-            '_' => '1723946520873'
-        ];
-
-        // Menggabungkan parameter ke dalam URL
-        $queryString = http_build_query($params);
-        $fullUrl = $url . '?' . $queryString;
-
-        // Inisialisasi sesi cURL
-        $ch = curl_init();
-
-        // Atur opsi cURL
-        curl_setopt($ch, CURLOPT_URL, $fullUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-        // Eksekusi cURL dan simpan respons
-        $response = curl_exec($ch);
-
-        // Cek jika terjadi kesalahan
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
-            $fb = ["status" => 500, "res" => curl_error($ch)];
-            //INSET TO LOG
-            $data_log = [
-                "waktu" => date("Y-m-d H:i:s"),
-                "proses" => "Proses Get Data ".$shop,
-                "status" => $fb["status"],
-                "problem" => $fb["res"],
-                "auto_sync" => $auto_sync,
+        $url = $kap == "1" ? "http://sv-web-kap/pis/searching_unit/byscan_main.php" : "http://10.59.225.35/Web_AndonPCD/AndonSearchingUnit/GetList/";
+        
+        if($kap == "1"){
+            $params = [
+                'shop' => $shop_val,
+                'tpcd' => $tpcd,
+                'scandt_from' => $start_date,
+                'scandt_to' => $end_date,
+                '_search' => 'false',
+                'nd' => '1723946520873',
+                'rows' => '10000',
+                'page' => '1',
+                'sidx' => '',
+                'sord' => 'asc',
+                '_' => '1723946520873'
             ];
-            $this->model->insert("log_sync",$data_log);
-            $this->fb($fb);
-        } else {
-            // Tampilkan hasil respons
-            $data = json_decode($response,TRUE);
-            if(!empty($data["rows"])){
-                foreach ($data["rows"] as $key => $value) {
-                    if(!empty($value["cell"][2])){
-                        $katashiki = $value["cell"][1];
-                        $vin = $value["cell"][2];
-                        $suffix = $value["cell"][3];
-                        $model = $value["cell"][4];
-                        $pid = $value["cell"][5];
-                        $dest = $value["cell"][6];
-                        $color = $value["cell"][7];
-                        $color_desc = $value["cell"][8];
-                        $shift = $value["cell"][10];
-                        //VALIDASI DATA
-                        $validasi = $this->model->gd("unit","vin","vin = '$vin'","row");
-                        $data_unit = [
-                            "katashiki" => $katashiki,
-                            "vin" => $vin,
-                            "suffix" => $suffix,
-                            "model" => $model,
-                            "pid" => $pid,
-                            "dest" => $dest,
-                            "color" => $color,
-                            "color_desc" => $color_desc,
-                            "shift" => $shift,
-                        ];
-                        if($shop == "jigin"){
-                            $data_unit["jig_in"] = $value["cell"][11];
-                        }else{
-                            $data_unit["delivery"] = $value["cell"][11];
+
+            // Menggabungkan parameter ke dalam URL
+            $queryString = http_build_query($params);
+            $fullUrl = $url . '?' . $queryString;
+    
+            // Inisialisasi sesi cURL
+            $ch = curl_init();
+    
+            // Atur opsi cURL
+            curl_setopt($ch, CURLOPT_URL, $fullUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+            // Eksekusi cURL dan simpan respons
+            $response = curl_exec($ch);
+    
+            // Cek jika terjadi kesalahan
+            if (curl_errno($ch)) {
+                echo 'Error:' . curl_error($ch);
+                $fb = ["status" => 500, "res" => curl_error($ch)];
+                //INSET TO LOG
+                $data_log = [
+                    "waktu" => date("Y-m-d H:i:s"),
+                    "proses" => "Proses Get Data ".$shop,
+                    "status" => $fb["status"],
+                    "problem" => $fb["res"],
+                    "auto_sync" => $auto_sync,
+                ];
+                $this->model->insert("log_sync",$data_log);
+                $this->fb($fb);
+            } else {
+                // Tampilkan hasil respons
+                $data = json_decode($response,TRUE);
+                if(!empty($data["rows"])){
+                    foreach ($data["rows"] as $key => $value) {
+                        if(!empty($value["cell"][2])){
+                            $katashiki = $value["cell"][1];
+                            $vin = $value["cell"][2];
+                            $suffix = $value["cell"][3];
+                            $model = $value["cell"][4];
+                            $pid = $value["cell"][5];
+                            $dest = $value["cell"][6];
+                            $color = $value["cell"][7];
+                            $color_desc = $value["cell"][8];
+                            $shift = $value["cell"][10];
+                            //VALIDASI DATA
+                            $validasi = $this->model->gd("unit","vin","vin = '$vin'","row");
+                            $data_unit = [
+                                "katashiki" => $katashiki,
+                                "vin" => $vin,
+                                "suffix" => $suffix,
+                                "model" => $model,
+                                "pid" => $pid,
+                                "dest" => $dest,
+                                "color" => $color,
+                                "color_desc" => $color_desc,
+                                "shift" => $shift,
+                            ];
+                            if($shop == "jigin"){
+                                $data_unit["jig_in"] = $value["cell"][11];
+                            }else{
+                                $data_unit["delivery"] = $value["cell"][11];
+                            }
+                            if(empty($validasi->vin)){
+                                $this->model->insert("unit",$data_unit);
+                            }else{
+                                $this->model->update("unit","vin = '$vin'",$data_unit);
+                            }
                         }
-                        if(empty($validasi->vin)){
-                            $this->model->insert("unit",$data_unit);
-                        }else{
-                            $this->model->update("unit","vin = '$vin'",$data_unit);
-                        }
+                    }
+                    $fb = ["status" => 200, "res" => date("Y-m-d H:i:s")." => Proses update berhasil"];
+                    //INSET TO LOG
+                    $data_log = [
+                        "waktu" => date("Y-m-d H:i:s"),
+                        "proses" => "Proses Get Data ".$shop,
+                        "status" => $fb["status"],
+                        "problem" => $fb["res"],
+                        "auto_sync" => $auto_sync,
+                    ];
+                    $this->model->insert("log_sync",$data_log);
+                    $this->fb($fb);
+                }else{
+                    $fb = ["status" => 500, "res" => date("Y-m-d H:i:s")." => Data kosong"];
+                    //INSET TO LOG
+                    $data_log = [
+                        "waktu" => date("Y-m-d H:i:s"),
+                        "proses" => "Proses Get Data ".$shop,
+                        "status" => $fb["status"],
+                        "problem" => $fb["res"],
+                        "auto_sync" => $auto_sync,
+                    ];
+                    $this->model->insert("log_sync",$data_log);
+                    $this->fb($fb);
+                }
+            }
+    
+            // Tutup sesi cURL
+            curl_close($ch);
+        }else{
+            $params[] = [
+                'Action' => "1",
+                'ScanDateEnd' => $end_date,
+                'ScanDateStart' => $start_date,
+                'ShopCode' => $shop_val,
+                'TrackingPoint' => $tpcd,
+                'UserID' => "userANDON",
+                'VINs' => ""
+            ];
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Content-Type: application/json",
+                "Cookie: UserLogin=userANDON; webbase_AndonPCD=%2FWeb_AndonPCD; jwtCookie=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiJ1c2VyQU5ET04iLCJuYW1lIjoiQzM4MTRjMzAgMTRGYSA0OUY3IDk3QjIgRjdkYjVkMGUzY2M0IiwianRpIjoiNzgyYWVkZTctMmVjYS00ZjViLWEzNTktZDcxNGI5MDg3NDgwIiwibmJmIjoxNzM5NzU2OTA3LCJleHAiOjE3NzEyOTI5MDcsImlzcyI6IkpXVEF1dGhlbnRpY2F0aW9uU2VydmVyIiwiYXVkIjoiSldUU2VydmljZVBvc3RtYW5DbGllbnQifQ.oWZy6pQ34-nGvsC5KB5tPR9XtfUMMdU77HMHPJ_X3Z0; UserName=C3814c30%2014Fa%2049F7%2097B2%20F7db5d0e3cc4; UserGroupID=3754381cXdcf5X47b3X8fc5X90fcc60e6433"
+            ]);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+
+            $response = curl_exec($ch);
+
+            $dataVin = json_decode($response,TRUE);
+            if(!empty($dataVin["Contents"])){
+                $data = $dataVin["Contents"];
+                foreach ($data as $key => $value) {
+                    $vin = $value["VIN"];
+                    $katashiki = str_replace(" ","",$value["Ktsk"]);
+                    $suffix = $value["Suffix"];
+                    $model = $value["Models"];
+                    $pid = $value["PIDNo"];
+                    $dest = $value["Dest"];
+                    $color = $value["Color"];
+                    $color_desc = $value["ColorDesc"];
+                    $shift = $value["Shift"];
+                    //VALIDASI DATA
+                    $validasi = $this->model->gd("unitkap2","vin","vin = '$vin'","row");
+                    $data_unit = [
+                        "katashiki" => $katashiki,
+                        "vin" => $vin,
+                        "suffix" => $suffix,
+                        "model" => $model,
+                        "pid" => $pid,
+                        "dest" => $dest,
+                        "color" => $color,
+                        "color_desc" => $color_desc,
+                        "shift" => $shift,
+                    ];
+                    if($shop == "jigin"){
+                        $data_unit["jig_in"] = $value["ScanDate"];
+                    }else{
+                        $data_unit["delivery"] = $value["ScanDate"];
+                    }
+                    if(empty($validasi->vin)){
+                        $this->model->insert("unitkap2",$data_unit);
+                    }else{
+                        $this->model->update("unitkap2","vin = '$vin'",$data_unit);
                     }
                 }
                 $fb = ["status" => 200, "res" => date("Y-m-d H:i:s")." => Proses update berhasil"];
-                //INSET TO LOG
-                $data_log = [
-                    "waktu" => date("Y-m-d H:i:s"),
-                    "proses" => "Proses Get Data ".$shop,
-                    "status" => $fb["status"],
-                    "problem" => $fb["res"],
-                    "auto_sync" => $auto_sync,
-                ];
-                $this->model->insert("log_sync",$data_log);
-                $this->fb($fb);
             }else{
                 $fb = ["status" => 500, "res" => date("Y-m-d H:i:s")." => Data kosong"];
-                //INSET TO LOG
-                $data_log = [
-                    "waktu" => date("Y-m-d H:i:s"),
-                    "proses" => "Proses Get Data ".$shop,
-                    "status" => $fb["status"],
-                    "problem" => $fb["res"],
-                    "auto_sync" => $auto_sync,
-                ];
-                $this->model->insert("log_sync",$data_log);
-                $this->fb($fb);
             }
+            curl_close($ch);
+            $this->fb($fb);
+            die();
         }
-
-        // Tutup sesi cURL
-        curl_close($ch);
-    }
-
-    private function roundTime($time)
-    {
-        $cariTime = $this->model->gd("timeline","end","'$time' BETWEEN `start` AND `end`","row");
-        $roundedTime = date("H:i:s",strtotime("+1 seconds",strtotime($cariTime->end)));
-        // Tampilkan hasil
-        return $roundedTime;
-    }
-
-    private function checkShift($date)
-    {
-        $shift = "DS";
-        $time = strtotime(date("H:i:s",strtotime($date)));
-        if($time >= strtotime("00:00:00") && $time <= strtotime("07:25:00")){
-            $shift = "NS";
-        }else if($time >= strtotime("20:40:00") && $time <= strtotime("23:59:59")){
-            $shift = "NS";
-        }
-
-        $ot_info = $this->model->gd("set_ot","start_ds,end_ds,start_ns,end_ns","tanggal = '".date("Y-m-d",strtotime($date))."'","row");
-        $ot_info = json_encode($ot_info);
-        $return = [
-            "ot_info" => json_decode($ot_info,true),
-            "shift" => $shift,
-        ];
-        return $return;
     }
 
     function calc_lead_time()
     {
         // error_reporting(0);
         header('Content-Type: application/json');
-        $std_otd = $this->std_otd();
         if((date("His")*1) >= 70000){
             $date = date("Y-m-d");
         }else{
@@ -494,6 +560,12 @@ class Admin extends MY_Controller {
         if(!empty($this->input->get("auto_sync"))){
             $auto_sync = $this->input->get("auto_sync");
         }
+
+        $KAP = "1";
+        if(!empty($this->input->get("KAP"))){
+            $KAP = $this->input->get("KAP");
+        }
+        $std_otd = $this->std_otd($KAP);
         
         //GET ALL DATA BY DATE
         $vin_hitung_ulang = ""; //MASUKKAN VIN DISINI UNTUK MENGETAHUI PROSES HITUNG NYA
@@ -502,7 +574,14 @@ class Admin extends MY_Controller {
         }else{
             $search_vin_ulang = "";
         }
-        $data = $this->model->gd("unit","vin,jig_in,delivery","otd IS NULL AND jig_in IS NOT NULL AND delivery IS NOT NULL AND delivery BETWEEN '".$date." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($date)))." 07:00:00' $search_vin_ulang ORDER BY delivery ASC LIMIT 0,".$this->std_limit,"result");
+        
+        //PRODUCTION
+        $tableUnit = $KAP == "1" ? "unit" : "unitkap2";
+        $data = $this->model->gd($tableUnit,"vin,jig_in,delivery","otd IS NULL AND jig_in IS NOT NULL AND delivery IS NOT NULL AND delivery BETWEEN '".$date." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($date)))." 07:00:00' $search_vin_ulang ORDER BY delivery ASC LIMIT 0,".$this->std_limit,"result");
+        
+        //TEST
+        // $data = $this->model->gd("unit","vin,jig_in,delivery","otd IS NULL AND jig_in IS NOT NULL AND delivery IS NOT NULL AND vin = 'MHKAA1BA3SJ154122'","result");
+        
         if(empty($data)){
             $fb = ["status" => 500, "res" => "Tidak ada data delivery"];
             //INSET TO LOG
@@ -517,7 +596,7 @@ class Admin extends MY_Controller {
             $this->fb($fb);
         }
 
-        $timeline = $this->model->gd("timeline","*","id !=","result");
+        $timeline = $this->model->gd("timeline","*","id != '' AND plant = '$KAP'","result");
         if(empty($timeline)){
             $fb = ["status" => 500, "res" => "Data timeline kosong"];
             //INSET TO LOG
@@ -545,12 +624,13 @@ class Admin extends MY_Controller {
                 $deliv_time_exp = explode(":",$deliv_time);
 
                 //GET INFO OT
-                $ot_info = $this->model->gd("set_ot","*","tanggal BETWEEN '".date("Y-m-d",strtotime($data->jig_in))."' AND '".date("Y-m-d",strtotime($data->delivery))."'","result");
+                $tableSetOT = $KAP == "1" ? "set_ot" : "set_ot_kap2";
+                $ot_info = $this->model->gd($tableSetOT,"*","tanggal BETWEEN '".date("Y-m-d",strtotime($data->jig_in))."' AND '".date("Y-m-d",strtotime($data->delivery))."'","result");
                 $no = 1;
                 $data_jam = [];
                 foreach ($ot_info as $ot_info) {
                     if($no == 1){
-                        $tanggal_awal = date("Y-m-".sprintf("%02d",$ot_info->tanggal));
+                        $tanggal_awal = $ot_info->tanggal;
                     }else{
                         $tanggal_awal = date("Y-m-d",strtotime("+1 days",strtotime($tanggal_awal)));
                     }
@@ -558,6 +638,7 @@ class Admin extends MY_Controller {
                         "tanggal" => $tanggal_awal,
                         "on_off" => $ot_info->on_off,
                         "DS" => ["start" => $ot_info->start_ds, "end" => $ot_info->end_ds],
+                        "on_off_night" => $ot_info->on_off_night,
                         "NS" => ["start" => $ot_info->start_ns, "end" => $ot_info->end_ns],
                     ];
                     $no++;
@@ -565,9 +646,12 @@ class Admin extends MY_Controller {
 
 
                 //HITUNG OTD
-                $total_otd = $this->hitung_otd($data_jam,$jigin_time,$deliv_time,$data->vin,$data->jig_in,$data->delivery);
+                $total_otd = $this->hitung_otd($data_jam,$jigin_time,$deliv_time,$data->vin,$data->jig_in,$data->delivery,$KAP);
 
                 $balance = $total_otd["otd_final"] - $std_otd;
+                // echo $std_otd;
+                // print_r($total_otd);
+                // die();
                 if($total_otd["otd_final"] <= $std_otd){
                     $status_otd = "Ontime";
                 }else{
@@ -580,7 +664,7 @@ class Admin extends MY_Controller {
                 if($status_otd != "NOT VALUABLE"){
                     $update_otd = ["otd" => $total_otd["otd_final"], "balance" => $balance, "tracking" => $total_otd["tracking"]];
                     //UPDATE
-                    $this->model->update("unit","vin = '$data->vin'",$update_otd);
+                    $this->model->update($tableUnit,"vin = '$data->vin'",$update_otd);
                 }
             }
         }
@@ -604,274 +688,132 @@ class Admin extends MY_Controller {
         ];
         $this->model->insert("log_sync",$data_log);
         $this->fb($fb);
-    } 
+    }
 
-    private function hitung_otd($ot_info,$jigin_time,$deliv_time,$vin,$jigin_date,$deliv_date)
+    private function hitung_otd($ot_info,$jigin_time,$deliv_time,$vin,$jigin_date,$deliv_date,$kap)
     {
         set_time_limit(20);
-        $currentTime = $jigin_date;
-        $dataOT = $this->checkShift($jigin_date);
-        $roundTime = $this->roundTime($currentTime);
-        $loopTime = true;
-        $timelineLoop = [];
-        $jigin_checkpoint = $jigin_time;
-        $finish_end = "no";
+        //CARI TIMELIME
+        $timeline = $this->createTimeline($ot_info,$kap);
 
-        $rangeHolidayStart = "";
-        $rangeHolidayMiddle = "";
-        $rangeHolidayEnd = "";
-        $i = 0;
-        $already_ns = "no"; //HANYA UNTUK HARI SENIN
-        while ($loopTime) {
-            $skip_collect = "no";
-            $day_val = date("D",strtotime($currentTime));
-            $start = date("H:i:s",strtotime($currentTime));
-            if($jigin_checkpoint == "Backdate"){
-                $n = 1;
-                $statusValidate = true;
-                while ($statusValidate) {
-                    $validateTanggal = $this->model->gd("set_ot","*","tanggal = '".date("Y-m-d",strtotime("-".$n." days",strtotime($currentTime)))."'","row");
-                    $currTimeBackDate = strtotime(date("H:i:s",strtotime($currentTime)));
-                    // log_message('debug', 'Executed query: ' . str_replace("\n"," ",$this->db->last_query()));
-                    if($validateTanggal->on_off > 0){
-                        $statusValidate = false;
-                        if($currTimeBackDate >= strtotime("20:40:00") && $currTimeBackDate <= strtotime("23:59:59")){
-                            $jigin_checkpoint = "Backdate";
-                        }else if($currTimeBackDate >= strtotime("00:00:00") && $currTimeBackDate <= strtotime("07:00:00")){
-                            $jigin_checkpoint = "Backdate";
-                        }else{
-                            $jigin_checkpoint = "BackdateFinish";
-                        }
-                    }else{
-                        if($n > 3){
-                            $statusValidate = false;
-                            if($currTimeBackDate >= strtotime("20:40:00") && $currTimeBackDate <= strtotime("23:59:59")){
-                                $jigin_checkpoint = "Backdate";
-                            }else if($currTimeBackDate >= strtotime("00:00:00") && $currTimeBackDate <= strtotime("07:00:00")){
-                                $jigin_checkpoint = "Backdate";
-                            }else{
-                                $jigin_checkpoint = "BackdateFinish";
-                            }
-                        }
-                    }
-                    $n++;
-                }
-            }else{
-                $validateTanggal = $this->model->gd("set_ot","*","tanggal = '".date("Y-m-d",strtotime($currentTime))."'","row");
+        $newTimeline = [];
+        $totimeJigIn = strtotime($jigin_date);
+        $totimeDeliv = strtotime($deliv_date);
+        foreach ($timeline as $key => $value) {
+            $totimeStart = strtotime($value["tanggal"]." ".$value["start"]);
+            $totimeEnd = strtotime($value["tanggal"]." ".$value["end"]);
+            if(!($totimeEnd < $totimeJigIn || $totimeStart > $totimeDeliv)) {
+                $newTimeline[] = [
+                    "tanggal" => $value["tanggal"],
+                    "start" => $value["start"],
+                    "end" => $value["end"],
+                    "minutes" => $value["minutes"],
+                    "shift" => $value["shift"],
+                    "tipe" => $value["tipe"],
+                ];
             }
-            // log_message('debug', 'Executed query: ' . str_replace("\n"," ",$this->db->last_query()));
-            if($validateTanggal->on_off <= 0){
-                if($validateTanggal->shadow <= 0){
-                    $skip_collect = "yes";
-                    $rangeHolidayStart = $validateTanggal->tanggal." 07:25:00";
-                    $rangeHolidayMiddle = date("Y-m-d",strtotime("+1 days",strtotime($validateTanggal->tanggal)))." 00:00:00";;
-                    $rangeHolidayEnd = date("Y-m-d",strtotime("+1 days",strtotime($validateTanggal->tanggal)))." 07:24:00";
-                }else{
-                    if(strtotime($start) >= strtotime("07:00:00") && strtotime($start) <= strtotime("23:59:59")){
-                        $currentTime = date("Y-m-d",strtotime("+1 days",strtotime($currentTime)))." 07:00:00";
-                    }
-                }
-            }
-
-
-            if(strtotime($currentTime) >= strtotime($deliv_date)){
-                $loopTime = false;
-                $loopOneHours = date("H:i:s",strtotime($deliv_date));
-                if($loopTime === false){
-                    //CARI SELISIH MENIT SETIAP WAKTU
-                    if(!empty($timelineLoop[$tanggalKey][$i-1])){
-                        $startDiff = new DateTime($timelineLoop[$tanggalKey][$i-1]["start"]);
-                    }else{
-                        $check_start = $this->model->gd("timeline","start","'".date("H:i:s",strtotime($deliv_date))."' BETWEEN `start` AND `end`","row");
-                        $startDiff = new DateTime($check_start->start);
-                        $timelineLoop[$tanggalKey][$i-1]["start"] = $check_start->start;
-                    }
-
-                    $endDiff = new DateTime(date("H:i:s",strtotime($deliv_date)));
-                    $diffMinutes = ($startDiff->diff($endDiff)->i) + ($startDiff->diff($endDiff)->h*60);
-
-                    $timelineLoop[$tanggalKey][$i-1]["end"] = date("H:i:s",strtotime($deliv_date));
-                    $timelineLoop[$tanggalKey][$i-1]["minutes"] = $diffMinutes;
-                }
-                $skip_collect = "yes";
-            }else{
-                if($jigin_date == $currentTime){
-                    $loopOneHours = $roundTime;
-                    $tipeLoop = "PROD";
-                    $shift = $dataOT["shift"];
-                }else{
-                    $loopOneHours = $this->model->gd("timeline","minutes,tipe,shift","'".date("H:i:s",strtotime($currentTime))."' BETWEEN `start` AND `end` AND day_val LIKE '%".$day_val."%'","row");
-                    // log_message('debug', 'Executed query: ' . str_replace("\n"," ",$this->db->last_query()));
-                    if(date("D",strtotime($currentTime)) == "Mon"){
-                        $currTime = strtotime(date("H:i:s",strtotime($currentTime)));
-                        if($currTime >= strtotime("07:23:00") && $currTime <= strtotime("23:59:59")){
-                            $tipeLoop = $loopOneHours->tipe;
-                        }else{
-                            //CHECK APAKAH HARI SEBELUMNYA ON
-                            $before_mon = $this->model->gd("set_ot","on_off","tanggal = '".date("Y-m-d",strtotime("-1 days",strtotime($currentTime)))."'","row");
-                            // log_message('debug', 'Executed query: ' . str_replace("\n"," ",$this->db->last_query()));
-                            if($before_mon->on_off <= 0 && $loopOneHours->shift == "NS" && $already_ns == "no"){ //HARI MINGGU NYA OFF
-                                $tipeLoop = "OFF";
-                            }else{
-                                $already_ns = "yes";
-                                $tipeLoop = $loopOneHours->tipe;
-                            }
-                        }
-                    }else{
-                        $tipeLoop = $loopOneHours->tipe;
-                    }
-                    $shift = $loopOneHours->shift;
-                    $loopOneHours = date("H:i:s",strtotime("+".$loopOneHours->minutes." minutes",strtotime($currentTime)));
-                }
-            }
-
-            if($shift == "NS"){
-                $endTimeShift = $validateTanggal->end_ns.":00";
-                $startTimeShift = $validateTanggal->start_ns.":00";
-                if($tipeLoop == "OT"){
-                    if(strtotime($start) >= strtotime("05:00:00") && strtotime($start) <= strtotime("07:23:00")){
-                        if(strtotime($start) >= strtotime($endTimeShift)){
-                            $tipeLoop = "OFF";
-                        }
-                    }
-                }
-            }else{
-                $endTimeShift = $validateTanggal->end_ds.":00";
-                $startTimeShift = $validateTanggal->start_ds.":00";
-
-            }
-
-
-            //CARI MINUTES
-            $tanggalKey = date("Y-m-d",strtotime($currentTime));
-            $end = date("H:i:s",strtotime("-1 seconds",strtotime($loopOneHours)));
-            $end_exp = explode(":",$end);
-            if(end($end_exp) == "59"){
-                $end = date("H:i:s",strtotime($loopOneHours));
-            }
-
-            if($end == "00:00:00"){
-                $end = "23:59:59";
-            }
-
-            //CARI SELISIH MENIT SETIAP WAKTU
-            $startDiff = new DateTime($start);
-            $endDiff = new DateTime($end);
-            $diffMinutes = ($startDiff->diff($endDiff)->i) + 1;
-
-            if(substr_count($tipeLoop,"OFF") <= 0){
-                if($tipeLoop == "OT"){
-                    if(strtotime($start) > strtotime($endTimeShift)){
-                        if($shift == "NS"){
-                            if($startTimeShift != "21:00:00"){
-                                if(strtotime($start) > strtotime($endTimeShift)){
-                                    if($startTimeShift == "20:30:00"){
-                                        $skip_collect = "no";
-                                    }else{
-                                        $skip_collect = "yes";
-                                    }
-                                }else{
-                                    $skip_collect = "no";
-                                }
-                            }else{
-                                $skip_collect = "yes";
-                            }
-                        }else{
-                            $skip_collect = "yes";
-                        }
-                    }else{
-                        $skip_collect = "no";
-                        if(strtotime($end) >= strtotime($endTimeShift)){
-                            $end = $endTimeShift;
-                            $endDiff = new DateTime($end);
-                            $diffMinutes = ($startDiff->diff($endDiff)->i)+1;
-                        }
-                    }
-                }
-
-                if(substr_count("Sat Sun",$day_val) <= 0){
-                    if(!empty($rangeHolidayStart) && !empty($rangeHolidayEnd) && !empty($rangeHolidayMiddle)){
-                        $totimeHolidayStart = strtotime($rangeHolidayStart);
-                        $totimeHolidayMiddle = strtotime($rangeHolidayMiddle);
-                        $totimeHolidayEnd = strtotime($rangeHolidayEnd);
-                        if(strtotime($currentTime) > $totimeHolidayStart && strtotime($currentTime) < $totimeHolidayEnd){
-                            $skip_collect = "yes";
-                        }else if(strtotime($currentTime) > $totimeHolidayMiddle && strtotime($currentTime) < $totimeHolidayEnd){
-                            $skip_collect = "yes";
-                        }
-                    }
-                }
-
-                if($skip_collect == "no"){
-                    if(strtotime($currentTime) < strtotime($deliv_date)){
-                        $timelineLoop[$tanggalKey][$i] = [
-                            "date" => date("Y-m-d H:i:s",strtotime($tanggalKey." ".$start)),
-                            "day" => date("D",strtotime($tanggalKey)),
-                            "start" => $start,
-                            "end" => $end,
-                            "minutes" => $diffMinutes,
-                            "tipe" => $tipeLoop,
-                            "shift" => $shift,
-                        ];
-                    }
-                }
-            }
-
-            if($loopOneHours == $roundTime){
-                $currentTime = date("Y-m-d",strtotime($currentTime))." ".$roundTime;
-                if($roundTime == "00:00:00"){
-                    if($i <= 0){
-                        if(strtotime($timelineLoop[$tanggalKey][$i]["date"]) > strtotime($currentTime)){
-                            $currentTime = date("Y-m-d",strtotime("+1 days",strtotime($currentTime)))." 00:00:01";
-                        }
-                    }else if($i > 0){
-                        if(strtotime($timelineLoop[$tanggalKey][$i-1]["date"]) > strtotime($currentTime)){
-                            $currentTime = date("Y-m-d",strtotime("+1 days",strtotime($currentTime)))."  00:00:01";
-                        }
-                    }
-                }
-            }else{
-                $loopOneHours = $this->model->gd("timeline","minutes","'".date("H:i:s",strtotime($currentTime))."' BETWEEN `start` AND `end` AND day_val LIKE '%".$day_val."%'","row");
-                // log_message('debug', 'Executed query: ' . str_replace("\n"," ",$this->db->last_query()));
-                $currentTime = date("Y-m-d H:i:s",strtotime("+".$loopOneHours->minutes." minutes",strtotime($currentTime)));
-                $currentTime_exp = explode(":",$currentTime);
-                if(end($currentTime_exp) == "00"){
-                    $currentTime = date("Y-m-d H:i:s",strtotime("+".$loopOneHours->minutes." minutes 1 seconds",strtotime($currentTime)));
-                }
-                // echo $vin."=>".$end."=>".$shift."=>".$jigin_checkpoint."\n";
-                if($shift == "NS" && $jigin_checkpoint != "Backdate"){
-                    if($jigin_checkpoint != "BackdateFinish"){
-                        $jigin_checkpoint = "Backdate";
-                    }
-                }
-            }
-
-            $i++;
         }
 
-        // print_r($timelineLoop);
-        // die();
+        //RUBAH TIME JIG IN DAN MASUKKAN KE ARRAY newTimeline
+        $jigInTime = new DateTime($jigin_time);
+        $jigInTimeEnd = new DateTime($newTimeline[0]["end"]);
+        $diffMinutes = ($jigInTime->diff($jigInTimeEnd)->i);
+        $newTimeline[0] = [
+            "tanggal" => $newTimeline[0]["tanggal"],
+            "start" => $jigin_time,
+            "end" => $newTimeline[0]["end"],
+            "minutes" => $diffMinutes,
+            "shift" => $newTimeline[0]["shift"],
+            "tipe" => $newTimeline[0]["tipe"],
+        ];
 
-        //FINAL OTD
+        //RUBAH TIME DELIVERY DAN MASUKKAN KE ARRAY newTimeline
+        //DAPATKAN KEY ARRAY TERAKHIR
+        $lastKey = array_key_last($newTimeline);
+        $delivTime = new DateTime($newTimeline[$lastKey]["start"]);
+        $delivTimeEnd = new DateTime($deliv_time);
+        $diffMinutes = ($delivTime->diff($delivTimeEnd)->i);
+        $newTimeline[$lastKey] = [
+            "tanggal" => $newTimeline[$lastKey]["tanggal"],
+            "start" => $newTimeline[$lastKey]["start"],
+            "end" => $deliv_time,
+            "minutes" => $diffMinutes,
+            "shift" => $newTimeline[$lastKey]["shift"],
+            "tipe" => $newTimeline[$lastKey]["tipe"],
+        ];
+
+        $collectData = [];
         $otd_final = 0;
-        if(!empty($timelineLoop)){
-            foreach ($timelineLoop as $keyLoop => $loopVal) {
-                foreach ($loopVal as $key => $value) {
-                    $otd_final += $value["minutes"];
-                }
+        if(!empty($newTimeline)){
+            foreach ($newTimeline as $key => $value) {
+                $otd_final += $value["minutes"];
+                $tanggalKey = $value["tanggal"];
+                $collectData[$tanggalKey][] = [
+                    "date" => date("Y-m-d H:i:s",strtotime($tanggalKey." ".$value["start"])),
+                    "day" => date("D",strtotime($tanggalKey)),
+                    "start" => $value["start"],
+                    "end" => $value["end"],
+                    "minutes" => $value["minutes"],
+                    "tipe" => $value["tipe"],
+                    "shift" => $value["shift"],
+                ];
             }
         }
 
         $return = [
             "otd_final" => $otd_final,
-            "tracking" => json_encode($timelineLoop)
+            "tracking" => json_encode($collectData)
         ];
-
+        
         return $return;
+    }
+
+    private function createTimeline($ot_info,$kap)
+    {
+        $timeline = [];
+        foreach ($ot_info as $key => $value) {
+            $tanggal = $value["tanggal"];
+            $dayVal = date("D", strtotime($tanggal));
+
+            $shifts = [
+                "DS" => ["on_off" => $value["on_off"], "start" => $value["DS"]["start"], "end" => $value["DS"]["end"]],
+                "NS1" => ["on_off" => $value["on_off_night"], "start" => $value["NS"]["start"], "end" => "23:59:59"],
+                "NS2" => ["on_off" => $value["on_off_night"], "start" => "00:00:00", "end" => $value["NS"]["end"], "next_day" => true]
+            ];
+
+            foreach ($shifts as $shift => $data) {
+                if (!empty($data["on_off"]) && !empty($data["start"]) && ($shift !== "NS2" || !empty($data["end"]))) {
+                    $currentDate = isset($data["next_day"]) ? date("Y-m-d", strtotime("+1 day", strtotime($tanggal))) : $tanggal;
+                    $currentDayVal = isset($data["next_day"]) ? date("D", strtotime($currentDate)) : $dayVal;
+
+                    $getTimeline = $this->model->gd("timeline", "minutes,start,end,tipe", 
+                        "plant = '$kap'
+                        AND day_val LIKE '%$currentDayVal%' 
+                        AND shift = '" . ($shift === "DS" ? "DS" : "NS") . "' 
+                        AND start >= '{$data["start"]}' 
+                        AND end <= '{$data["end"]}' 
+                        AND (tipe LIKE '%PROD%' OR tipe LIKE '%OT%')", "result");
+
+                    foreach ($getTimeline as $tl) {
+                        $timeline[] = [
+                            "tanggal" => $currentDate,
+                            "start" => $tl->start,
+                            "end" => $tl->end,
+                            "minutes" => $tl->minutes,
+                            "shift" => $shift === "DS" ? "DS" : "NS",
+                            "tipe" => $tl->tipe,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $timeline;    
     }
 
 	function summary_otd()
     {
+        $kap = !empty($this->input->get("kap")) ? $this->input->get("kap") : "1";
         if(empty($this->month_sum)){
             $data["month_sum"] = date("m");
         }else{
@@ -884,7 +826,7 @@ class Admin extends MY_Controller {
         }
         $data_std = $this->model->gd("master_setting","*","item != ''","result");
         $data["data_std"] = $data_std;
-        $setup_adjust = $this->model->gd("setup_otd_adjust","*","id = '1'","row");
+        $setup_adjust = $this->model->gd("setup_otd_adjust","*","id = '$kap'","row");
         $data["otd_adjust"] = $setup_adjust->otd_adjust;
         $data["title"] = "Summary OTD";
         $data["body"] = "summary_otd";
@@ -894,6 +836,7 @@ class Admin extends MY_Controller {
 
 	function summary_otd_excel()
     {
+        $kap = !empty($this->input->get("kap")) ? $this->input->get("kap") : "1";
         if(empty($this->month_sum)){
             $data["month_sum"] = date("m");
         }else{
@@ -906,7 +849,7 @@ class Admin extends MY_Controller {
         }
         $data_std = $this->model->gd("master_setting","*","item != ''","result");
         $data["data_std"] = $data_std;
-        $setup_adjust = $this->model->gd("setup_otd_adjust","*","id = '1'","row");
+        $setup_adjust = $this->model->gd("setup_otd_adjust","*","id = '$kap'","row");
         $data["otd_adjust"] = $setup_adjust->otd_adjust;
         $this->load->view("admin/summary_otd_excel",$data);
     }
@@ -944,6 +887,9 @@ class Admin extends MY_Controller {
             $day_search = "'".$day." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($day)))." 07:00:00'";
         }
 
+        $kap = $this->input->get("kap");
+        $tableUnit = $kap == "1" ? "unit" : "unitkap2";
+
         $dataTipe = [
             -11  => ["<=",-1921],
             -10  => [-1920,-1441],
@@ -973,11 +919,11 @@ class Admin extends MY_Controller {
         if(is_numeric($dataTipe[$tipe][0])){
             $valueUp = $dataTipe[$tipe][0];
             $valueDown = $dataTipe[$tipe][1];
-            $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance BETWEEN $valueUp AND $valueDown AND vin != '' ORDER BY balance ASC","result");
+            $list_unit = $this->model->gd($tableUnit,"*","delivery BETWEEN ".$day_search." AND balance BETWEEN $valueUp AND $valueDown AND vin != '' ORDER BY balance ASC","result");
         }else{
             $arrowFunction = $dataTipe[$tipe][0];
             $value = $dataTipe[$tipe][1];
-            $list_unit = $this->model->gd("unit","*","delivery BETWEEN ".$day_search." AND balance $arrowFunction $value AND vin != '' ORDER BY balance ASC","result");
+            $list_unit = $this->model->gd($tableUnit,"*","delivery BETWEEN ".$day_search." AND balance $arrowFunction $value AND vin != '' ORDER BY balance ASC","result");
         }
 
         $result = [];
@@ -1182,13 +1128,16 @@ class Admin extends MY_Controller {
     function tracking_time()
     {
         $this->form_validation->set_rules("vin","VIN","required|trim");
+        $this->form_validation->set_rules("kap","KAP","required|trim");
         if($this->form_validation->run() === FALSE){
             $fb = ["statusCode" => 500, "data" => ["message" => validation_errors()]];
             $this->fb($fb);
         }
 
         $vin = $this->input->post("vin",true);
-        $tracking = $this->model->gd("unit","tracking,otd","vin = '$vin'","row");
+        $kap = $this->input->post("kap",true);
+        $tableUnit = $kap == "1" ? "unit" : "unitkap2";
+        $tracking = $this->model->gd($tableUnit,"tracking,otd","vin = '$vin'","row");
         if(empty($tracking->tracking)){
             $fb = ["statusCode" => 500, "data" => ["message" => "Data Tracking Kosong"]];
             $this->fb($fb);

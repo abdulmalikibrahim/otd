@@ -9,11 +9,13 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     function tracking_time(data) {
+        kap = "<?= $this->input->get("kap"); ?>";
         $.ajax({
             type:"post",
             url:"<?= base_url("tracking_time"); ?>",
             data:{
                 vin:data.dataset.vin,
+                kap:kap,
             },
             dataType:"JSON",
             beforeSend:function() {
@@ -160,7 +162,7 @@
         $("#modal-chart").modal("show");
         $("#title-chart").html("Chart OTD "+data.dataset.tanggal);
         const maxVal = data.dataset.max;
-        const xValues = [ "Adv. > 32h", "Adv. 32h", "Adv. 24h", "Adv. 16h", "Adv. 8h", "Adv. 7h", "Adv. 6h", "Adv. 5h", "Adv. 4h", "Adv. 3h", "Adv. 2h", "Adv. 1h", "Ontime", "Delay 1h", "Delay 2h", "Delay 3h", "Delay 4h", "Delay 5h", "Delay 6h", "Delay 7h", "Delay 8h", "Delay 16h", "Delay 24h", "Delay 32h", "Delay > 32h" ];
+        const xValues = [ "Adv. > 32h", "Adv. 32h", "Adv. 24h", "Adv. 16h", "Adv. 8h", "Adv. 7h", "Adv. 6h", "Adv. 5h", "Adv. 4h", "Adv. 3h", "Adv. 2h", "Ontime", "Delay 2h", "Delay 3h", "Delay 4h", "Delay 5h", "Delay 6h", "Delay 7h", "Delay 8h", "Delay 16h", "Delay 24h", "Delay 32h", "Delay > 32h" ];
         var chart = JSON.parse(data.dataset.chart);
         console.log(chart,xValues);
         // Memuat chart
@@ -216,8 +218,8 @@
             borderColor: 'green',
             borderDash: [6, 6],
             borderWidth: 3,
-            xMin: 20,
-            xMax: 20,
+            xMin: 18,
+            xMax: 18,
             xScaleID: 'x',
             yMax: maxVal,
             yMin: 0,
@@ -228,7 +230,7 @@
             backgroundColor:'rgba(182, 250, 200, 0.2)',
             borderWidth: 0,
             xMin: 4,
-            xMax: 20,
+            xMax: 18,
             xScaleID: 'x',
             yMax: maxVal,
             yMin: 0,
@@ -295,7 +297,7 @@
                     borderColor: 'red'
                 }
             },
-            xMin: 20,
+            xMin: 18,
             xMax: 25,
             xScaleID: 'x',
             yMax: maxVal,
@@ -317,7 +319,7 @@
             type: 'box',
             backgroundColor:'rgba(237, 173, 166, 0.2)',
             borderWidth: 0,
-            xMin: 20,
+            xMin: 18,
             xMax: 25,
             xScaleID: 'x',
             yMax: maxVal,
@@ -463,13 +465,14 @@
     function showListUnit(data) {
         tipe = data.dataset.tipe;
         pdd = data.dataset.pdd;
+        kap = "<?= $this->input->get("kap"); ?>";
         // Jika DataTable sudah ada, hancurkan terlebih dahulu
         if ($.fn.DataTable.isDataTable('#datatable')) {
             table.destroy(true);  // Tambahkan true untuk menghancurkan dengan bersih
             $('#datatable').empty(); // Kosongkan tabel agar data lama benar-benar terhapus
         }
         $.ajax({
-            url:"<?= base_url("list_unit") ?>/"+tipe+"/"+pdd,
+            url:"<?= base_url("list_unit") ?>/"+tipe+"/"+pdd+"?kap="+kap,
             dataType:"JSON",
             beforeSend:function() {
                 $("#modal-list-unit").modal("show");
@@ -562,12 +565,14 @@
     }, 300000);
 
     function re_calculate(data) {
+        kap = "<?= $this->input->get("kap"); ?>";
         $.ajax({
             type:"post",
             url:"<?= base_url("re_calculate") ?>",
             data:{
                 vin:data.dataset.vin,
                 pdd:data.dataset.pdd,
+                kap:kap,
             },
             dataType:"JSON",
             beforeSend:function() {
@@ -578,19 +583,6 @@
                 d = JSON.parse(JSON.stringify(r));
                 console.log(d);
                 if(d.statusCode == 200){
-                    // var time = 3;
-                    // var interval = 1000;
-                    // setInterval(() => {
-                    //     $("#btn-re-calculate").removeClass("btn-info");
-                    //     $("#btn-re-calculate").addClass("btn-success");
-                    //     $("#btn-re-calculate").html("Kalkulasi Selesai. Reload "+time+"s");
-                    //     if(time <= 0){
-                    //         location.reload();
-                    //         interval = 30000;
-                    //     }else{
-                    //         time--;
-                    //     }
-                    // }, interval);
                     $("#btn-re-calculate").removeClass("btn-info");
                     $("#btn-re-calculate").addClass("btn-success");
                     $("#btn-re-calculate").html("Kalkulasi Selesai. Reload page...");

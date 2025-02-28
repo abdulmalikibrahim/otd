@@ -63,13 +63,16 @@
             <a href="<?= base_url("leadtime"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>2. Set Std Leadtime</h4></a>
         </div>
         <div class="mt-3" style="min-width:400px;">
-            <a href="<?= base_url("summary_otd"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>3. Achievement OTD</h4></a>
+            <a href="<?= base_url("summary_otd?kap=1"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>3. Achievement OTD KAP1</h4></a>
         </div>
         <div class="mt-3" style="min-width:400px;">
-            <a href="<?= base_url("live_andon"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>4. Live Andon</h4></a>
+            <a href="<?= base_url("summary_otd?kap=2"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>4. Achievement OTD KAP2</h4></a>
         </div>
         <div class="mt-3" style="min-width:400px;">
-            <a href="<?= base_url("graph_andon"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>5. Graph</h4></a>
+            <a href="<?= base_url("live_andon"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>5. Live Andon</h4></a>
+        </div>
+        <div class="mt-3" style="min-width:400px;">
+            <a href="<?= base_url("graph_andon"); ?>" class="btn btn-lightgreen w-100 text-left pt-2 pb-2" style="border-radius:30px; padding-left:25px; padding-right:25px;"><h4>6. Graph</h4></a>
         </div>
     </div>
 </body>
@@ -77,53 +80,5 @@
 <script src="<?php echo base_url('assets/jquery/jquery.min.js'); ?>"></script>
 <script src="https://cdn.datatables.net/v/bs4/dt-2.1.0/datatables.min.js"></script>
 <script>
-	$("#datatable").DataTable();
-</script>
-<!-- AUTO SYNC -->
-<script>
-    function get_data(shop) {
-        if(shop == "jigin"){
-            shop_val = "Jig In";
-        }else{
-            shop_val = "Delivery";
-        }
-        $.ajax({
-            url:"<?= base_url("get_data"); ?>/"+shop,
-            dataType:"JSON",
-            beforeSend:function() {
-                $("#status_get_data_"+shop).html(shop_val+" : Processing get data...");
-            },
-            success:function(r) {
-                d = JSON.parse(JSON.stringify(r));
-                console.log(r);
-                $("#status_get_data_"+shop).html(shop_val+" : "+d.res);
-                if(shop == "jigin"){
-                    get_data("delivery");
-                }else{
-                    calc_leadtime();
-                }
-            },
-            error:function(a,b,c) {
-                $("#status_get_data_"+shop).html(shop_val+" : "+a.responseText);
-            }
-        });
-    }
-    function calc_leadtime() {
-        $.ajax({
-            url:"<?= base_url("calc_lead_time"); ?>",
-            dataType:"JSON",
-            beforeSend:function() {
-                $("#status_calc_lead_time").html("Calc Lead Time : Calculating...");
-            },
-            success:function(r) {
-                d = JSON.parse(JSON.stringify(r));
-                console.log(r);
-                $("#status_calc_lead_time").html("Calc Lead Time : "+d.res);
-            },
-            error:function(a,b,c) {
-                $("#status_calc_lead_time").html("Calc Lead Time : "+a.responseText);
-            }
-        });
-    }
-    get_data("jigin");
+	// $("#datatable").DataTable();
 </script>

@@ -14,17 +14,11 @@ class MY_Controller extends CI_Controller {
         echo json_encode($array);
         die();   
     }
-    function std_otd($kap)
+    function std_otd()
     {
-        if($kap == "1"){
-            $wip = $this->model->gd("master_setting","SUM(nilai) as total_wip","item LIKE '%wip%' AND item NOT LIKE '%kap2%'","row");
-            $tt = $this->model->gd("master_setting","nilai","item = 'tt'","row");
-            $eff = $this->model->gd("master_setting","nilai","item = 'eff'","row");
-        }else{
-            $wip = $this->model->gd("master_setting","SUM(nilai) as total_wip","item LIKE '%wip%' AND item LIKE '%kap2%'","row");
-            $tt = $this->model->gd("master_setting","nilai","item = 'tt_kap2'","row");
-            $eff = $this->model->gd("master_setting","nilai","item = 'eff_kap2'","row");
-        }
+        $wip = $this->model->gd("master_setting","SUM(nilai) as total_wip","item LIKE '%wip%'","row");
+        $tt = $this->model->gd("master_setting","nilai","item = 'tt'","row");
+        $eff = $this->model->gd("master_setting","nilai","item = 'eff'","row");
         $total_wip = $wip->total_wip;
         $std_otd = ($total_wip*$tt->nilai)/$eff->nilai;
         return round($std_otd);   

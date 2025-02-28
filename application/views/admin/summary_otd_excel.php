@@ -47,8 +47,11 @@ header("Cache-Control: max-age=0");
         <tbody>
             <?php
             $date = $year_sum."-".$month_sum."-01";
+            $kap = !empty($this->input->get("kap")) ? $this->input->get("kap") : "1";
+            $tableUnit = $kap == "1" ? "unit" : "unitkap2";
+            $tableSetOt = $kap == "1" ? "set_ot" : "set_ot_kap2";
             for ($i=1; $i <= date("t",strtotime($date)); $i++) {
-                $get_data_dot = $this->model->gd("set_ot","*","tanggal = '$i'","row");
+                $get_data_dot = $this->model->gd($tableSetOt,"*","tanggal = '$i'","row");
                 $day = date("Y-m-d",strtotime(date($year_sum."-".$month_sum."-").sprintf("%02d",$i)));
                 $total_unit = $this->model->query_exec("SELECT COUNT(u1.vin) AS total_unit,
                 SUM(CASE WHEN u2.balance BETWEEN -60 AND -1 THEN 1 ELSE 0 END) AS adv_1jam,
@@ -70,7 +73,7 @@ header("Cache-Control: max-age=0");
                 SUM(CASE WHEN u2.balance BETWEEN 361 AND 420 THEN 1 ELSE 0 END) AS total_7jam,
                 SUM(CASE WHEN u2.balance BETWEEN 421 AND 480 THEN 1 ELSE 0 END) AS total_8jam,
                 SUM(CASE WHEN u2.balance >= 481 THEN 1 ELSE 0 END) AS total_more8jam
-                FROM unit u1 LEFT JOIN unit u2 ON u1.vin = u2.vin WHERE u1.delivery BETWEEN '".$day." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($day)))." 07:00:00';","row");
+                FROM $tableUnit u1 LEFT JOIN $tableUnit u2 ON u1.vin = u2.vin WHERE u1.delivery BETWEEN '".$day." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($day)))." 07:00:00';","row");
                 
                 // Assign results to variables
                 $totalUnit = $total_unit->total_unit;

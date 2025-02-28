@@ -1,0 +1,2 @@
+ALTER TABLE `set_ot_kap2` ADD `on_off_night` ENUM('0','1') NOT NULL DEFAULT '1' AFTER `end_ds`;
+ALTER TABLE `set_ot` ADD `on_off_night` ENUM('0','1') NOT NULL DEFAULT '1' AFTER `end_ds`;

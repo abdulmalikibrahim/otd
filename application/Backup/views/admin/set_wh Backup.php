@@ -62,17 +62,16 @@
                     <table class="table table-bordered table-hover m-0">
                         <thead class="thead-light">
                             <tr>
-                                <th class="pt-1 pb-1 text-center align-middle" rowspan="2">Tanggal</th>
-                                <th class="pt-1 pb-1 text-center align-middle" rowspan="2">On/Off<br>Day</th>
-                                <th class="pt-1 pb-1 text-center align-middle" colspan="2">Day Shift</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light" rowspan="2">On/Off<br>Night</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light" colspan="2">Night Shift</th>
+                                <th class="pt-1 pb-1 text-center" rowspan="2">Tanggal</th>
+                                <th class="pt-1 pb-1 text-center" rowspan="2">On/Off</th>
+                                <th class="pt-1 pb-1 text-center" colspan="2">Day Shift</th>
+                                <th class="pt-1 pb-1 text-center bg-secondary text-light" colspan="2">Night Shift</th>
                             </tr>
                             <tr>
-                                <th class="pt-1 pb-1 text-center align-middle">Start</th>
-                                <th class="pt-1 pb-1 text-center align-middle">End</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light">Start</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light">End</th>
+                                <th class="pt-1 pb-1 text-center">Start</th>
+                                <th class="pt-1 pb-1 text-center">End</th>
+                                <th class="pt-1 pb-1 text-center bg-secondary text-light">Start</th>
+                                <th class="pt-1 pb-1 text-center bg-secondary text-light">End</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -87,48 +86,33 @@
                                     $bg_day = "";
                                 }
 
-                                if(empty($get_data_dot->on_off)){
+                                if($get_data_dot->on_off <= 0){
                                     $checked = "";
                                     $color_text = "text-light";
                                 }else{
-                                    $checked = "checked";
-                                    $color_text = "text-dark";
-                                }
-
-                                if(empty($get_data_dot->on_off_night)){
-                                    $checkednight = "";
-                                    $color_textnight = "text-light";
-                                }else{
                                     if($get_data_dot->shadow == 0){
-                                        $checkednight = "checked";
-                                        $color_textnight = "text-dark";
+                                        $checked = "checked";
+                                        $color_text = "text-dark";
                                     }else{
-                                        $checkednight = "";
-                                        $color_textnight = "text-light";
+                                        $checked = "";
+                                        $color_text = "text-light";
                                     }
                                 }
                                 ?>
                                 <tr>
-                                    <td class="<?= $bg_day; ?> pt-1 pb-1">
-                                        <?= date("D, d M",strtotime(date("Y-".$monthNow."-".sprintf("%02d",$i)))); ?>
-                                    </td>
-                                    <td class="<?= $bg_day; ?> pt-1 pb-1 text-center">
-                                        <input type="checkbox" name="onoff[<?= $i; ?>]" value="<?= $i; ?>" data-tanggal="<?= $i; ?>" onclick="setuponoff(this)" <?= $checked; ?>>
+                                    <td class="<?= $bg_day; ?> pt-1 pb-1"><?= date("D, d M",strtotime(date("Y-".$monthNow."-".sprintf("%02d",$i)))); ?></td>
+                                    <td class="<?= $bg_day; ?> pt-1 pb-1 text-center"><input type="checkbox" name="onoff[<?= $i; ?>]" value="<?= $i; ?>" data-tanggal="<?= $i; ?>" onclick="setuponoff(this)" <?= $checked; ?>></td>
+                                    <td class="p-0">
+                                        <input type="time" id="start_ds_<?= $i; ?>" name="start_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->start_ds; ?>">
                                     </td>
                                     <td class="p-0">
-                                        <input type="time" id="start_ds_<?= $i; ?>" name="start_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= !empty($get_data_dot->start_ds) ? $get_data_dot->start_ds : ""; ?>">
+                                        <input type="time" id="end_ds_<?= $i; ?>" name="end_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->end_ds; ?>">
                                     </td>
                                     <td class="p-0">
-                                        <input type="time" id="end_ds_<?= $i; ?>" name="end_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= !empty($get_data_dot->end_ds) ? $get_data_dot->end_ds : ""; ?>">
-                                    </td>
-                                    <td class="<?= $bg_day; ?> pt-1 pb-1 text-center">
-                                        <input type="checkbox" name="onoffnight[<?= $i; ?>]" value="<?= $i; ?>" data-tanggal="<?= $i; ?>" onclick="setuponoffnight(this)" <?= $checkednight; ?>>
+                                        <input type="time" id="start_ns_<?= $i; ?>" name="start_ns[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->start_ns; ?>">
                                     </td>
                                     <td class="p-0">
-                                        <input type="time" id="start_ns_<?= $i; ?>" name="start_ns[<?= $i; ?>]" class="<?= $color_textnight; ?> form-control text-center" value="<?= !empty($get_data_dot->start_ns) ? $get_data_dot->start_ns : ""; ?>">
-                                    </td>
-                                    <td class="p-0">
-                                        <input type="time" id="end_ns_<?= $i; ?>" name="end_ns[<?= $i; ?>]" class="<?= $color_textnight; ?> form-control text-center" value="<?= !empty($get_data_dot->end_ns) ? $get_data_dot->end_ns : ""; ?>">
+                                        <input type="time" id="end_ns_<?= $i; ?>" name="end_ns[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->end_ns; ?>">
                                     </td>
                                 </tr>
                                 <?php
@@ -145,17 +129,16 @@
                     <table class="table table-bordered table-hover m-0">
                         <thead class="thead-light">
                             <tr>
-                                <th class="pt-1 pb-1 text-center align-middle" rowspan="2">Tanggal</th>
-                                <th class="pt-1 pb-1 text-center align-middle" rowspan="2">On/Off<br>Day</th>
-                                <th class="pt-1 pb-1 text-center align-middle" colspan="2">Day Shift</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light" rowspan="2">On/Off<br>Night</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light" colspan="2">Night Shift</th>
+                                <th class="pt-1 pb-1 text-center" rowspan="2">Tanggal</th>
+                                <th class="pt-1 pb-1 text-center" rowspan="2">On/Off</th>
+                                <th class="pt-1 pb-1 text-center" colspan="2">Day Shift</th>
+                                <th class="pt-1 pb-1 text-center bg-secondary text-light" colspan="2">Night Shift</th>
                             </tr>
                             <tr>
-                                <th class="pt-1 pb-1 text-center align-middle">Start</th>
-                                <th class="pt-1 pb-1 text-center align-middle">End</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light">Start</th>
-                                <th class="pt-1 pb-1 text-center align-middle bg-secondary text-light">End</th>
+                                <th class="pt-1 pb-1 text-center">Start</th>
+                                <th class="pt-1 pb-1 text-center">End</th>
+                                <th class="pt-1 pb-1 text-center bg-secondary text-light">Start</th>
+                                <th class="pt-1 pb-1 text-center bg-secondary text-light">End</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -170,48 +153,33 @@
                                     $bg_day = "";
                                 }
 
-                                if(empty($get_data_dot->on_off)){
+                                if($get_data_dot->on_off <= 0){
                                     $checked = "";
                                     $color_text = "text-light";
                                 }else{
-                                    $checked = "checked";
-                                    $color_text = "text-dark";
-                                }
-
-                                if(empty($get_data_dot->on_off_night)){
-                                    $checkednight = "";
-                                    $color_textnight = "text-light";
-                                }else{
                                     if($get_data_dot->shadow == 0){
-                                        $checkednight = "checked";
-                                        $color_textnight = "text-dark";
+                                        $checked = "checked";
+                                        $color_text = "text-dark";
                                     }else{
-                                        $checkednight = "";
-                                        $color_textnight = "text-light";
+                                        $checked = "";
+                                        $color_text = "text-light";
                                     }
                                 }
                                 ?>
                                 <tr>
-                                    <td class="<?= $bg_day; ?> pt-1 pb-1">
-                                        <?= date("D, d M",strtotime(date("Y-".$monthNow."-".sprintf("%02d",$i)))); ?>
-                                    </td>
-                                    <td class="<?= $bg_day; ?> pt-1 pb-1 text-center">
-                                        <input type="checkbox" name="onoff[<?= $i; ?>]" value="<?= $i; ?>" data-tanggal="<?= $i; ?>" onclick="setuponoff(this)" <?= $checked; ?>>
+                                    <td class="<?= $bg_day; ?> pt-1 pb-1"><?= date("D, d M",strtotime(date("Y-".$monthNow."-".sprintf("%02d",$i)))); ?></td>
+                                    <td class="<?= $bg_day; ?> pt-1 pb-1 text-center"><input type="checkbox" name="onoff[<?= $i; ?>]" value="<?= $i; ?>" data-tanggal="<?= $i; ?>" onclick="setuponoff(this)" <?= $checked; ?>></td>
+                                    <td class="p-0">
+                                        <input type="time" id="start_ds_<?= $i; ?>" name="start_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->start_ds; ?>">
                                     </td>
                                     <td class="p-0">
-                                        <input type="time" id="start_ds_<?= $i; ?>" name="start_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= !empty($get_data_dot->start_ds) ? $get_data_dot->start_ds : ""; ?>">
+                                        <input type="time" id="end_ds_<?= $i; ?>" name="end_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->end_ds; ?>">
                                     </td>
                                     <td class="p-0">
-                                        <input type="time" id="end_ds_<?= $i; ?>" name="end_ds[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= !empty($get_data_dot->end_ds) ? $get_data_dot->end_ds : ""; ?>">
-                                    </td>
-                                    <td class="<?= $bg_day; ?> pt-1 pb-1 text-center">
-                                        <input type="checkbox" name="onoffnight[<?= $i; ?>]" value="<?= $i; ?>" data-tanggal="<?= $i; ?>" onclick="setuponoffnight(this)" <?= $checkednight; ?>>
+                                        <input type="time" id="start_ns_<?= $i; ?>" name="start_ns[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->start_ns; ?>">
                                     </td>
                                     <td class="p-0">
-                                        <input type="time" id="start_ns_<?= $i; ?>" name="start_ns[<?= $i; ?>]" class="<?= $color_textnight; ?> form-control text-center" value="<?= !empty($get_data_dot->start_ns) ? $get_data_dot->start_ns : ""; ?>">
-                                    </td>
-                                    <td class="p-0">
-                                        <input type="time" id="end_ns_<?= $i; ?>" name="end_ns[<?= $i; ?>]" class="<?= $color_textnight; ?> form-control text-center" value="<?= !empty($get_data_dot->end_ns) ? $get_data_dot->end_ns : ""; ?>">
+                                        <input type="time" id="end_ns_<?= $i; ?>" name="end_ns[<?= $i; ?>]" class="<?= $color_text; ?> form-control text-center" value="<?= $get_data_dot->end_ns; ?>">
                                     </td>
                                 </tr>
                                 <?php

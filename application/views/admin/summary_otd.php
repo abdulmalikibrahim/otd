@@ -4,6 +4,9 @@
       color: white;
     }
 </style>
+<?php
+  $kap = !empty($this->input->get("kap")) ? $this->input->get("kap") : "1";
+?>
     <div class="row">
         <div class="col-lg-4 text-right">
             <div class="input-group">
@@ -84,7 +87,7 @@
     </div>
 <div class="row mt-0">
     <div class="col-lg-12 text-right mb-2">
-        <a href="<?= base_url("summary_otd_excel"); ?>" target="_blank" class="btn btn-success" id="btn-convert-excel"><i class="fas fa-file-excel mr-2"></i>Download Table</a>
+        <a href="<?= base_url("summary_otd_excel?kap=".$kap); ?>" target="_blank" class="btn btn-success" id="btn-convert-excel"><i class="fas fa-file-excel mr-2"></i>Download Table</a>
     </div>
     <div class="col-lg-12">
         <div class="card">
@@ -128,67 +131,123 @@
                     </thead>
                     <tbody>
                         <?php
-                        $date = $year_sum."-".$month_sum."-01";
+                        $tableSetOt = $kap == "1" ? "set_ot" : "set_ot_kap2";
+                        $tableUnit = $kap == "1" ? "unit" : "unitkap2";
+                        $date = $year_sum."-".sprintf("%02d",$month_sum)."-01";
+                        $dateEnd = date("Y-m-01",strtotime("+1 month",strtotime($date)));
+                        $total_unit = $this->model->query_exec("
+                        WITH delivery_data AS (
+                          SELECT 
+                            DATE(DATE_SUB(u1.delivery, INTERVAL '7:25' HOUR_MINUTE)) AS delivery_date, 
+                            COUNT(u1.vin) AS total_unit
+                          FROM $tableUnit u1
+                          WHERE u1.delivery BETWEEN '$date 07:25:00' AND '$dateEnd 07:25:00'
+                            AND u1.otd IS NOT NULL
+                          GROUP BY delivery_date
+                        )
+                        SELECT 
+                          DATE(DATE_SUB(u1.delivery, INTERVAL '7:25' HOUR_MINUTE)) AS delivery_date, 
+                          COUNT(u1.vin) AS total_unit,
+                          SUM(CASE WHEN u2.balance <= -1921 THEN 1 ELSE 0 END) AS adv_more_32jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -1920 AND -1441 THEN 1 ELSE 0 END) AS adv_32jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -1440 AND -961 THEN 1 ELSE 0 END) AS adv_24jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -960 AND -481 THEN 1 ELSE 0 END) AS adv_16jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -480 AND -421 THEN 1 ELSE 0 END) AS adv_8jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -420 AND -361 THEN 1 ELSE 0 END) AS adv_7jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -360 AND -301 THEN 1 ELSE 0 END) AS adv_6jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -300 AND -241 THEN 1 ELSE 0 END) AS adv_5jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -240 AND -181 THEN 1 ELSE 0 END) AS adv_4jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -180 AND -121 THEN 1 ELSE 0 END) AS adv_3jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -120 AND -61 THEN 1 ELSE 0 END) AS adv_2jam,
+                          SUM(CASE WHEN u2.balance BETWEEN -60 AND 60 THEN 1 ELSE 0 END) AS total_ontime,
+                          SUM(CASE WHEN u2.balance BETWEEN 61 AND 120 THEN 1 ELSE 0 END) AS delay_2jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 121 AND 180 THEN 1 ELSE 0 END) AS delay_3jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 181 AND 240 THEN 1 ELSE 0 END) AS delay_4jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 241 AND 300 THEN 1 ELSE 0 END) AS delay_5jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 301 AND 360 THEN 1 ELSE 0 END) AS delay_6jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 361 AND 420 THEN 1 ELSE 0 END) AS delay_7jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 421 AND 480 THEN 1 ELSE 0 END) AS delay_8jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 481 AND 960 THEN 1 ELSE 0 END) AS delay_16jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 961 AND 1440 THEN 1 ELSE 0 END) AS delay_24jam,
+                          SUM(CASE WHEN u2.balance BETWEEN 1441 AND 1920 THEN 1 ELSE 0 END) AS delay_32jam,
+                          SUM(CASE WHEN u2.balance >= 1921 THEN 1 ELSE 0 END) AS delay_more_32jam
+                        FROM $tableUnit u1
+                        LEFT JOIN $tableUnit u2 ON u1.vin = u2.vin
+                        JOIN delivery_data dd 
+                          ON DATE(DATE_SUB(u1.delivery, INTERVAL '7:25' HOUR_MINUTE)) = dd.delivery_date
+                        WHERE u1.delivery BETWEEN '$date 07:25:00' AND '$dateEnd 07:25:00'
+                          AND u1.otd IS NOT NULL
+                        GROUP BY delivery_date, dd.total_unit
+                        ","result");
+
+                        $dataTimeline = ["total_unit","adv_more_32jam","adv_32jam","adv_24jam","adv_16jam","adv_8jam","adv_7jam","adv_6jam","adv_5jam","adv_4jam","adv_3jam","adv_2jam","total_ontime","delay_more_32jam","delay_32jam","delay_24jam","delay_16jam","delay_8jam","delay_7jam","delay_6jam","delay_5jam","delay_4jam","delay_3jam","delay_2jam"];
+                        $dataSummary = [];
+                        foreach ($total_unit as $total_unit) {
+                          foreach ($dataTimeline as $key => $value) {
+                            $dataSummary[$total_unit->delivery_date][$value] = $total_unit->$value;
+                          }
+                        }
                         for ($i=1; $i <= date("t",strtotime($date)); $i++) {
-                            $get_data_dot = $this->model->gd("set_ot","*","tanggal = '$i'","row");
-                            $day = date("Y-m-d",strtotime(date($year_sum."-".$month_sum."-").sprintf("%02d",$i)));
-                            $total_unit = $this->model->query_exec("SELECT COUNT(u1.vin) AS total_unit,
-                            SUM(CASE WHEN u2.balance <= -1921 THEN 1 ELSE 0 END) AS adv_more_32jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -1920 AND -1441 THEN 1 ELSE 0 END) AS adv_32jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -1440 AND -961 THEN 1 ELSE 0 END) AS adv_24jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -960 AND -481 THEN 1 ELSE 0 END) AS adv_16jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -480 AND -421 THEN 1 ELSE 0 END) AS adv_8jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -420 AND -361 THEN 1 ELSE 0 END) AS adv_7jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -360 AND -301 THEN 1 ELSE 0 END) AS adv_6jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -300 AND -241 THEN 1 ELSE 0 END) AS adv_5jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -240 AND -181 THEN 1 ELSE 0 END) AS adv_4jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -180 AND -121 THEN 1 ELSE 0 END) AS adv_3jam,
-                            SUM(CASE WHEN u2.balance BETWEEN -120 AND -61 THEN 1 ELSE 0 END) AS adv_2jam,
+                            $get_data_dot = $this->model->gd($tableSetOt,"*","tanggal = '$i'","row");
+                            $tanggal = date($year_sum."-".sprintf("%02d",$month_sum)."-").sprintf("%02d",$i);
+                            $day = date("Y-m-d",strtotime($tanggal));
+                            // $total_unit = $this->model->query_exec("SELECT COUNT(u1.vin) AS total_unit,
+                            // SUM(CASE WHEN u2.balance <= -1921 THEN 1 ELSE 0 END) AS adv_more_32jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -1920 AND -1441 THEN 1 ELSE 0 END) AS adv_32jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -1440 AND -961 THEN 1 ELSE 0 END) AS adv_24jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -960 AND -481 THEN 1 ELSE 0 END) AS adv_16jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -480 AND -421 THEN 1 ELSE 0 END) AS adv_8jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -420 AND -361 THEN 1 ELSE 0 END) AS adv_7jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -360 AND -301 THEN 1 ELSE 0 END) AS adv_6jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -300 AND -241 THEN 1 ELSE 0 END) AS adv_5jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -240 AND -181 THEN 1 ELSE 0 END) AS adv_4jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -180 AND -121 THEN 1 ELSE 0 END) AS adv_3jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN -120 AND -61 THEN 1 ELSE 0 END) AS adv_2jam,
 
-                            SUM(CASE WHEN u2.balance BETWEEN -60 AND 60 THEN 1 ELSE 0 END) AS total_ontime,
+                            // SUM(CASE WHEN u2.balance BETWEEN -60 AND 60 THEN 1 ELSE 0 END) AS total_ontime,
 
-                            SUM(CASE WHEN u2.balance BETWEEN 61 AND 120 THEN 1 ELSE 0 END) AS delay_2jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 121 AND 180 THEN 1 ELSE 0 END) AS delay_3jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 181 AND 240 THEN 1 ELSE 0 END) AS delay_4jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 241 AND 300 THEN 1 ELSE 0 END) AS delay_5jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 301 AND 360 THEN 1 ELSE 0 END) AS delay_6jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 361 AND 420 THEN 1 ELSE 0 END) AS delay_7jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 421 AND 480 THEN 1 ELSE 0 END) AS delay_8jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 481 AND 960 THEN 1 ELSE 0 END) AS delay_16jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 961 AND 1440 THEN 1 ELSE 0 END) AS delay_24jam,
-                            SUM(CASE WHEN u2.balance BETWEEN 1441 AND 1920 THEN 1 ELSE 0 END) AS delay_32jam,
-                            SUM(CASE WHEN u2.balance >= 1921 THEN 1 ELSE 0 END) AS delay_more_32jam
-                            FROM unit u1 LEFT JOIN unit u2 ON u1.vin = u2.vin WHERE u1.delivery BETWEEN '".$day." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($day)))." 07:00:00' AND u1.otd IS NOT NULL","row");
+                            // SUM(CASE WHEN u2.balance BETWEEN 61 AND 120 THEN 1 ELSE 0 END) AS delay_2jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 121 AND 180 THEN 1 ELSE 0 END) AS delay_3jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 181 AND 240 THEN 1 ELSE 0 END) AS delay_4jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 241 AND 300 THEN 1 ELSE 0 END) AS delay_5jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 301 AND 360 THEN 1 ELSE 0 END) AS delay_6jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 361 AND 420 THEN 1 ELSE 0 END) AS delay_7jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 421 AND 480 THEN 1 ELSE 0 END) AS delay_8jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 481 AND 960 THEN 1 ELSE 0 END) AS delay_16jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 961 AND 1440 THEN 1 ELSE 0 END) AS delay_24jam,
+                            // SUM(CASE WHEN u2.balance BETWEEN 1441 AND 1920 THEN 1 ELSE 0 END) AS delay_32jam,
+                            // SUM(CASE WHEN u2.balance >= 1921 THEN 1 ELSE 0 END) AS delay_more_32jam
+                            // FROM $tableUnit u1 LEFT JOIN $tableUnit u2 ON u1.vin = u2.vin WHERE u1.delivery BETWEEN '".$day." 07:00:00' AND '".date("Y-m-d",strtotime("+1 days",strtotime($day)))." 07:00:00' AND u1.otd IS NOT NULL","row");
                             
                             // Assign results to variables
-                            $totalUnit = $total_unit->total_unit;
+                            $totalUnit = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["total_unit"] : 0;
                             
-                            $adv_2jam = $total_unit->adv_2jam;
-                            $adv_3jam = $total_unit->adv_3jam;
-                            $adv_4jam = $total_unit->adv_4jam;
-                            $adv_5jam = $total_unit->adv_5jam;
-                            $adv_6jam = $total_unit->adv_6jam;
-                            $adv_7jam = $total_unit->adv_7jam;
-                            $adv_8jam = $total_unit->adv_8jam;
-                            $adv_16jam = $total_unit->adv_16jam;
-                            $adv_24jam = $total_unit->adv_24jam;
-                            $adv_32jam = $total_unit->adv_32jam;
-                            $adv_more_32jam = $total_unit->adv_more_32jam;
+                            $adv_2jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_2jam"] : 0;
+                            $adv_3jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_3jam"] : 0;
+                            $adv_4jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_4jam"] : 0;
+                            $adv_5jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_5jam"] : 0;
+                            $adv_6jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_6jam"] : 0;
+                            $adv_7jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_7jam"] : 0;
+                            $adv_8jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_8jam"] : 0;
+                            $adv_16jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_16jam"] : 0;
+                            $adv_24jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_24jam"] : 0;
+                            $adv_32jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_32jam"] : 0;
+                            $adv_more_32jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["adv_more_32jam"] : 0;
                             $totalAdvance = $adv_16jam + $adv_24jam + $adv_32jam + $adv_more_32jam;
                             
-                            $total_ontime = $total_unit->total_ontime;
+                            $total_ontime = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["total_ontime"] : 0;
 
-                            $delay_2jam = $total_unit->delay_2jam;
-                            $delay_3jam = $total_unit->delay_3jam;
-                            $delay_4jam = $total_unit->delay_4jam;
-                            $delay_5jam = $total_unit->delay_5jam;
-                            $delay_6jam = $total_unit->delay_6jam;
-                            $delay_7jam = $total_unit->delay_7jam;
-                            $delay_8jam = $total_unit->delay_8jam;
-                            $delay_16jam = $total_unit->delay_16jam;
-                            $delay_24jam = $total_unit->delay_24jam;
-                            $delay_32jam = $total_unit->delay_32jam;
-                            $delay_more_32jam = $total_unit->delay_more_32jam;
+                            $delay_2jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_2jam"] : 0;
+                            $delay_3jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_3jam"] : 0;
+                            $delay_4jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_4jam"] : 0;
+                            $delay_5jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_5jam"] : 0;
+                            $delay_6jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_6jam"] : 0;
+                            $delay_7jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_7jam"] : 0;
+                            $delay_8jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_8jam"] : 0;
+                            $delay_16jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_16jam"] : 0;
+                            $delay_24jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_24jam"] : 0;
+                            $delay_32jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_32jam"] : 0;
+                            $delay_more_32jam = !empty($dataSummary[$tanggal]) ? $dataSummary[$tanggal]["delay_more_32jam"] : 0;
 
                             $dataDay = [
                                 intval($adv_more_32jam),
@@ -219,7 +278,7 @@
                             $maxVal = max($dataDay)+15;
 
                             $arrayOTDValues = array_slice($dataDay,4,(intval($otd_adjust)+8));
-                            // print_r($arrayOTDValues);
+                            // print_r($dataDay);
                             // echo "<br>";
                             
                             $otd_value = 0;
@@ -235,7 +294,7 @@
                             ?>
                             <tr>
                                 <td style="font-size:12pt;" class="align-middle <?=$bg_row;?> text-center p-1 td-row"><?= date("D, d M",strtotime($day)); ?></td>
-                                <td style="font-size:12pt;" class="align-middle <?=$bg_row;?> text-center p-1 td-row"><?= $total_unit->total_unit; ?></td>
+                                <td style="font-size:12pt;" class="align-middle <?=$bg_row;?> text-center p-1 td-row"><?= $totalUnit; ?></td>
                                 
                                 <?php
                                 $tipe = -11;
@@ -243,9 +302,9 @@
                                 $tipeClassVal = "";
                                 foreach ($dataDay as $key => $value) {
                                     if(!empty($bg_row)){
-                                      $dataDay = "SatSun";
+                                      $dataDayVal = "SatSun";
                                     }else{
-                                      $dataDay = "";
+                                      $dataDayVal = "";
                                     }
                                     if($key >= 0 && $key <= 3){
                                       if(empty($bg_row)){
@@ -261,7 +320,7 @@
                                         $tipeClassVal = "bg-danger text-light";
                                       }
                                     }
-                                    echo '<td style="font-size:12pt; cursor:pointer;" title="Click for show list unit" class="align-middle '.$bg_row.' text-center p-1 td-row '.$tipeClassVal.'" data-day="'.$dataDay.'" data-tipe="'.$tipe.'" data-pdd="'.$day.'" onclick="showListUnit(this)">'.$value.'</td>';
+                                    echo '<td style="font-size:12pt; cursor:pointer;" title="Click for show list unit" class="align-middle '.$bg_row.' text-center p-1 td-row '.$tipeClassVal.'" data-day="'.$dataDayVal.'" data-tipe="'.$tipe.'" data-pdd="'.$day.'" onclick="showListUnit(this)">'.$value.'</td>';
                                     $tipe++;
                                 }
                                 ?>
